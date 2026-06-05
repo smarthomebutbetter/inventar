@@ -13,3 +13,6 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
+
+# Lokales Dev-Hilfsmittel (maschinenspezifischer Pfad, nicht veroeffentlichen)
+sync-from-ha.ps1
