@@ -10,7 +10,8 @@ import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN, DEFAULT_IMAGE_DIR
+from . import backup as backup_lib
+from .const import DOMAIN, DEFAULT_IMAGE_DIR, DEFAULT_BACKUP_DIR
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -445,6 +446,256 @@ async def ws_dev_status(
     })
 
 
+# ── Backup / Restore ──────────────────────────────────────────────────────
+def _safe_backup_path(filename: str) -> str | None:
+    """Verhindert Pfad-Traversal: nur Dateinamen im Backup-Ordner zulassen."""
+    base = os.path.basename(filename or "")
+    if not base.endswith(".invbak"):
+        return None
+    path = os.path.join(DEFAULT_BACKUP_DIR, base)
+    if os.path.dirname(os.path.abspath(path)) != os.path.abspath(DEFAULT_BACKUP_DIR):
+        return None
+    return path
+
+
+def _produkt_ordner(hass: HomeAssistant) -> str:
+    coordinator = hass.data[DOMAIN].get("coordinator")
+    if coordinator is not None:
+        return str(coordinator.produkt_ordner)
+    return "/config/inventar/produkte"
+
+
+async def _apply_restore(hass: HomeAssistant, result: dict) -> bool:
+    """Uebernimmt wiederhergestellte Einstellungen und aktualisiert Produkte."""
+    settings_data = result.pop("settings_data", None)
+    if settings_data:
+        settings_manager = hass.data[DOMAIN].get("settings_manager")
+        if settings_manager is not None:
+            await settings_manager.async_save(settings_data)
+    coordinator = hass.data[DOMAIN].get("coordinator")
+    if coordinator is not None:
+        await coordinator.async_request_refresh()
+    return bool(settings_data)
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "inventar/backup/export",
+    vol.Required("password"): str,
+})
+@websocket_api.async_response
+async def ws_backup_export(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict,
+) -> None:
+    """Erstellt ein verschluesseltes Voll-Backup, legt es auf dem Server ab und
+    liefert es zusaetzlich als Base64 zum Browser-Download zurueck."""
+    password = msg["password"]
+    if not password:
+        connection.send_error(msg["id"], "no_password", "Passwort erforderlich")
+        return
+
+    settings_manager = hass.data[DOMAIN].get("settings_manager")
+    settings = settings_manager.all if settings_manager is not None else {}
+    produkt_ordner = _produkt_ordner(hass)
+
+    def _build():
+        zip_bytes, manifest = backup_lib.build_backup_zip(
+            produkt_ordner, DEFAULT_IMAGE_DIR, settings, include_images=True
+        )
+        blob = backup_lib.encrypt_bytes(zip_bytes, password)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"inventar_backup_{ts}.invbak"
+        os.makedirs(DEFAULT_BACKUP_DIR, exist_ok=True)
+        with open(os.path.join(DEFAULT_BACKUP_DIR, filename), "wb") as fh:
+            fh.write(blob)
+        return filename, blob, manifest
+
+    try:
+        filename, blob, manifest = await hass.async_add_executor_job(_build)
+    except Exception as err:
+        _LOGGER.error("Backup-Export fehlgeschlagen: %s", err)
+        connection.send_error(msg["id"], "export_failed", str(err))
+        return
+
+    connection.send_result(msg["id"], {
+        "filename": filename,
+        "data": base64.b64encode(blob).decode("ascii"),
+        "size": len(blob),
+        "counts": manifest.get("counts", {}),
+    })
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "inventar/backup/import",
+    vol.Required("data"): str,
+    vol.Required("password"): str,
+})
+@websocket_api.async_response
+async def ws_backup_import(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict,
+) -> None:
+    """Stellt ein hochgeladenes verschluesseltes Backup wieder her."""
+    data_b64 = msg["data"]
+    if "," in data_b64:
+        data_b64 = data_b64.split(",", 1)[1]
+    password = msg["password"]
+    produkt_ordner = _produkt_ordner(hass)
+
+    def _restore():
+        blob = base64.b64decode(data_b64)
+        zip_bytes = backup_lib.decrypt_bytes(blob, password)
+        return backup_lib.restore_backup_zip(zip_bytes, produkt_ordner, DEFAULT_IMAGE_DIR)
+
+    try:
+        result = await hass.async_add_executor_job(_restore)
+    except ValueError as err:
+        connection.send_error(msg["id"], "decrypt_failed", str(err))
+        return
+    except Exception as err:
+        _LOGGER.error("Backup-Import fehlgeschlagen: %s", err)
+        connection.send_error(msg["id"], "import_failed", str(err))
+        return
+
+    had_settings = await _apply_restore(hass, result)
+    connection.send_result(msg["id"], {"success": True, "settings": had_settings, **result})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "inventar/backup/list",
+})
+@websocket_api.async_response
+async def ws_backup_list(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict,
+) -> None:
+    """Listet die auf dem Server abgelegten Backups."""
+    def _list():
+        items = []
+        if os.path.isdir(DEFAULT_BACKUP_DIR):
+            for name in os.listdir(DEFAULT_BACKUP_DIR):
+                if not name.endswith(".invbak"):
+                    continue
+                full = os.path.join(DEFAULT_BACKUP_DIR, name)
+                try:
+                    st = os.stat(full)
+                except OSError:
+                    continue
+                items.append({
+                    "filename": name,
+                    "size": st.st_size,
+                    "created": datetime.fromtimestamp(st.st_mtime).isoformat(timespec="seconds"),
+                })
+        items.sort(key=lambda x: x["created"], reverse=True)
+        return items
+
+    items = await hass.async_add_executor_job(_list)
+    connection.send_result(msg["id"], {"backups": items})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "inventar/backup/restore_server",
+    vol.Required("filename"): str,
+    vol.Required("password"): str,
+})
+@websocket_api.async_response
+async def ws_backup_restore_server(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict,
+) -> None:
+    """Stellt ein auf dem Server liegendes Backup wieder her."""
+    path = _safe_backup_path(msg["filename"])
+    if not path:
+        connection.send_error(msg["id"], "invalid_filename", "Ungueltiger Dateiname")
+        return
+    password = msg["password"]
+    produkt_ordner = _produkt_ordner(hass)
+
+    def _restore():
+        if not os.path.isfile(path):
+            raise FileNotFoundError("Backup nicht gefunden")
+        with open(path, "rb") as fh:
+            blob = fh.read()
+        zip_bytes = backup_lib.decrypt_bytes(blob, password)
+        return backup_lib.restore_backup_zip(zip_bytes, produkt_ordner, DEFAULT_IMAGE_DIR)
+
+    try:
+        result = await hass.async_add_executor_job(_restore)
+    except ValueError as err:
+        connection.send_error(msg["id"], "decrypt_failed", str(err))
+        return
+    except Exception as err:
+        _LOGGER.error("Restore (Server) fehlgeschlagen: %s", err)
+        connection.send_error(msg["id"], "restore_failed", str(err))
+        return
+
+    had_settings = await _apply_restore(hass, result)
+    connection.send_result(msg["id"], {"success": True, "settings": had_settings, **result})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "inventar/backup/download",
+    vol.Required("filename"): str,
+})
+@websocket_api.async_response
+async def ws_backup_download(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict,
+) -> None:
+    """Gibt ein Server-Backup als Base64 zum Browser-Download zurueck."""
+    path = _safe_backup_path(msg["filename"])
+    if not path:
+        connection.send_error(msg["id"], "invalid_filename", "Ungueltiger Dateiname")
+        return
+
+    def _read():
+        with open(path, "rb") as fh:
+            return fh.read()
+
+    try:
+        blob = await hass.async_add_executor_job(_read)
+    except Exception as err:
+        connection.send_error(msg["id"], "read_failed", str(err))
+        return
+
+    connection.send_result(msg["id"], {
+        "filename": os.path.basename(path),
+        "data": base64.b64encode(blob).decode("ascii"),
+        "size": len(blob),
+    })
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "inventar/backup/delete",
+    vol.Required("filename"): str,
+})
+@websocket_api.async_response
+async def ws_backup_delete(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict,
+) -> None:
+    """Loescht ein Server-Backup."""
+    path = _safe_backup_path(msg["filename"])
+    if not path:
+        connection.send_error(msg["id"], "invalid_filename", "Ungueltiger Dateiname")
+        return
+
+    def _delete():
+        if os.path.isfile(path):
+            os.remove(path)
+            return True
+        return False
+
+    ok = await hass.async_add_executor_job(_delete)
+    connection.send_result(msg["id"], {"success": ok})
+
+
 # Prozess-globaler Guard: WebSocket-Commands lassen sich nicht abmelden und
 # duerfen daher pro HA-Prozess nur einmal registriert werden. Die Handler holen
 # Coordinator/Settings zur Laufzeit aus hass.data — ein Reload braucht sie nicht
@@ -471,5 +722,12 @@ def async_register_websockets(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_dev_enable)
     websocket_api.async_register_command(hass, ws_dev_version_tap)
     websocket_api.async_register_command(hass, ws_dev_status)
+
+    websocket_api.async_register_command(hass, ws_backup_export)
+    websocket_api.async_register_command(hass, ws_backup_import)
+    websocket_api.async_register_command(hass, ws_backup_list)
+    websocket_api.async_register_command(hass, ws_backup_restore_server)
+    websocket_api.async_register_command(hass, ws_backup_download)
+    websocket_api.async_register_command(hass, ws_backup_delete)
 
     _WEBSOCKETS_REGISTERED = True

@@ -13,6 +13,7 @@ DEFAULT_DASHBOARD_NAME = "Inventar"
 
 DEFAULT_IMAGE_DIR = "/config/www/inventar/images"
 DEFAULT_QR_DIR = "/config/www/inventar/qr"
+DEFAULT_BACKUP_DIR = "/config/inventar/backups"
 
 DEFAULT_KATEGORIEN = [
     "Alles",
