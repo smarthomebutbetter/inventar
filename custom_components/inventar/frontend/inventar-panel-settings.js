@@ -98,6 +98,12 @@ class InventarPanel extends LitElement {
     _restartDone:      { state: true },
     _backupLoading:    { state: true },
     _backupDone:       { state: true },
+    _bkPassword:       { state: true },
+    _bkBusy:           { state: true },
+    _bkMsg:            { state: true },
+    _bkErr:            { state: true },
+    _serverBackups:    { state: true },
+    _importName:       { state: true },
     _dbClearLoading:   { state: true },
     _dbClearConfirm:   { state: true },
     _iconPickerOpen:   { state: true },
@@ -126,6 +132,13 @@ class InventarPanel extends LitElement {
     this._restartDone      = false;
     this._backupLoading    = false;
     this._backupDone       = false;
+    this._bkPassword       = "";
+    this._bkBusy           = false;
+    this._bkMsg            = "";
+    this._bkErr            = "";
+    this._serverBackups    = [];
+    this._importName       = "";
+    this._importData       = null;   // base64 der gewaehlten .invbak (nicht reaktiv)
     this._dbClearLoading   = false;
     this._dbClearConfirm   = false;
     this._iconPickerOpen   = false;
@@ -148,6 +161,7 @@ class InventarPanel extends LitElement {
       this._configLoaded = true;
       this._loadConfig();
       this._loadDevStatus();
+      this._loadServerBackups();
     }
     if (changedProps.has("hass") && this.hass) {
       this._syncStats();
@@ -311,14 +325,113 @@ class InventarPanel extends LitElement {
     setTimeout(() => { this._restartLoading = false; this._restartDone = true; }, 1200);
   }
 
-  async _createBackup() {
-    this._backupLoading = true; this._backupDone = false;
+  // ── Backup / Restore ─────────────────────────────────────
+  async _loadServerBackups() {
     try {
-      await this.hass.connection.sendMessagePromise({ type: "inventar/backup/create" });
-      this._backupDone = true;
-      setTimeout(() => { this._backupDone = false; }, 3000);
-    } catch (e) { console.error("[Settings] Backup:", e); }
-    this._backupLoading = false;
+      const r = await this.hass.connection.sendMessagePromise({ type: "inventar/backup/list" });
+      this._serverBackups = r?.backups ?? [];
+    } catch (_) { this._serverBackups = []; }
+  }
+
+  _bkFlash(msg, isErr = false) {
+    if (isErr) { this._bkErr = msg; this._bkMsg = ""; }
+    else { this._bkMsg = msg; this._bkErr = ""; }
+    setTimeout(() => { this._bkMsg = ""; this._bkErr = ""; }, 6000);
+  }
+
+  _b64ToBlob(b64, type = "application/octet-stream") {
+    const bin = atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type });
+  }
+
+  async _downloadB64(b64, filename) {
+    const blob = this._b64ToBlob(b64);
+    // iOS/Android: Web Share mit Datei bevorzugen (a.download unzuverlaessig auf iOS)
+    if (navigator.canShare) {
+      try {
+        const file = new File([blob], filename, { type: "application/octet-stream" });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: filename });
+          return;
+        }
+      } catch (e) { if (e?.name === "AbortError") return; }
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.rel = "noopener";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+
+  async _exportBackup() {
+    if ((this._bkPassword || "").length < 4) { this._bkFlash("Passwort: mindestens 4 Zeichen", true); return; }
+    this._bkBusy = true; this._bkMsg = ""; this._bkErr = "";
+    try {
+      const r = await this.hass.connection.sendMessagePromise({ type: "inventar/backup/export", password: this._bkPassword });
+      await this._downloadB64(r.data, r.filename);
+      const c = r.counts || {};
+      this._bkFlash(`Backup erstellt: ${c.products || 0} Produkte, ${c.images || 0} Bilder`);
+      await this._loadServerBackups();
+    } catch (e) { this._bkFlash(e?.message || "Export fehlgeschlagen", true); }
+    this._bkBusy = false;
+  }
+
+  _pickImportFile() { this.shadowRoot?.querySelector("#bk-import-file")?.click(); }
+
+  async _onImportFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    this._importName = file.name;
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let bin = "";
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    this._importData = btoa(bin);
+    e.target.value = "";  // gleiche Datei erneut waehlbar
+  }
+
+  async _importBackup() {
+    if (!this._importData) { this._bkFlash("Bitte zuerst eine .invbak-Datei waehlen", true); return; }
+    if ((this._bkPassword || "").length < 4) { this._bkFlash("Passwort eingeben", true); return; }
+    this._bkBusy = true; this._bkMsg = ""; this._bkErr = "";
+    try {
+      const r = await this.hass.connection.sendMessagePromise({ type: "inventar/backup/import", data: this._importData, password: this._bkPassword });
+      this._bkFlash(`Wiederhergestellt: ${r.products || 0} Produkte, ${r.images || 0} Bilder`);
+      this._importData = null; this._importName = "";
+      await this._loadServerBackups();
+    } catch (e) { this._bkFlash(e?.message || "Import fehlgeschlagen (falsches Passwort?)", true); }
+    this._bkBusy = false;
+  }
+
+  async _restoreServer(filename) {
+    if ((this._bkPassword || "").length < 4) { this._bkFlash("Passwort fuer Wiederherstellung eingeben", true); return; }
+    this._bkBusy = true;
+    try {
+      const r = await this.hass.connection.sendMessagePromise({ type: "inventar/backup/restore_server", filename, password: this._bkPassword });
+      this._bkFlash(`Wiederhergestellt: ${r.products || 0} Produkte, ${r.images || 0} Bilder`);
+    } catch (e) { this._bkFlash(e?.message || "Wiederherstellung fehlgeschlagen (falsches Passwort?)", true); }
+    this._bkBusy = false;
+  }
+
+  async _downloadServer(filename) {
+    try {
+      const r = await this.hass.connection.sendMessagePromise({ type: "inventar/backup/download", filename });
+      await this._downloadB64(r.data, r.filename);
+    } catch (e) { this._bkFlash(e?.message || "Download fehlgeschlagen", true); }
+  }
+
+  async _deleteServer(filename) {
+    try {
+      await this.hass.connection.sendMessagePromise({ type: "inventar/backup/delete", filename });
+      await this._loadServerBackups();
+    } catch (e) { this._bkFlash(e?.message || "Loeschen fehlgeschlagen", true); }
+  }
+
+  _fmtSize(bytes) {
+    if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + " MB";
+    if (bytes >= 1024) return (bytes / 1024).toFixed(0) + " KB";
+    return (bytes || 0) + " B";
   }
 
   async _clearDb() {
@@ -459,6 +572,26 @@ class InventarPanel extends LitElement {
     .info-box   { padding:12px 16px;border-radius:var(--inv-radius-sm);background:rgba(var(--rgb-primary-color,99,102,241),0.07);border:1px solid rgba(var(--rgb-primary-color,99,102,241),0.18);font-size:13px;color:var(--secondary-text-color);line-height:1.5; }
     .warn-box   { padding:12px 16px;border-radius:var(--inv-radius-sm);background:rgba(251,140,0,0.08);border:1px solid rgba(251,140,0,0.22);font-size:13px;color:#fb8c00;line-height:1.5; }
     .danger-box { padding:12px 16px;border-radius:var(--inv-radius-sm);background:rgba(229,57,53,0.08);border:1px solid rgba(229,57,53,0.22);font-size:13px;color:#e53935;line-height:1.5; }
+    .bk-wrap { padding:14px 18px;display:flex;flex-direction:column;gap:12px; }
+    .bk-input { width:100%;box-sizing:border-box;padding:12px 14px;border-radius:var(--inv-radius-sm);border:1.5px solid var(--divider-color);background:var(--card-background-color,#fff);color:var(--primary-text-color);font-size:14px;font-family:inherit;outline:none; }
+    .bk-input:focus { border-color:var(--primary-color); }
+    .bk-import-row { display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--inv-radius-sm);background:rgba(var(--rgb-primary-color,99,102,241),0.07); }
+    .bk-import-name { flex:1;font-size:13px;color:var(--primary-text-color);overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+    .bk-msg { padding:10px 14px;border-radius:var(--inv-radius-sm);font-size:13px;line-height:1.4; }
+    .bk-msg.ok  { background:rgba(67,160,71,0.1);border:1px solid rgba(67,160,71,0.25);color:#2e7d32; }
+    .bk-msg.err { background:rgba(229,57,53,0.08);border:1px solid rgba(229,57,53,0.22);color:#e53935; }
+    .bk-list-title { font-size:13px;font-weight:700;color:var(--secondary-text-color);margin-top:4px; }
+    .bk-empty { font-size:13px;color:var(--secondary-text-color);padding:10px 0;text-align:center; }
+    .bk-item { display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--inv-radius-sm);background:var(--secondary-background-color,rgba(0,0,0,0.03)); }
+    .bk-item-info { flex:1;min-width:0; }
+    .bk-item-name { font-size:13px;font-weight:600;color:var(--primary-text-color);overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+    .bk-item-meta { font-size:12px;color:var(--secondary-text-color);margin-top:2px; }
+    .bk-item-actions { display:flex;gap:2px;flex-shrink:0; }
+    .bk-icon-btn { width:38px;height:38px;border-radius:50%;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--primary-color);padding:0;transition:background 0.15s; }
+    .bk-icon-btn:hover { background:rgba(var(--rgb-primary-color,99,102,241),0.12); }
+    .bk-icon-btn.danger { color:#e53935; }
+    .bk-icon-btn.danger:hover { background:rgba(229,57,53,0.12); }
+    .bk-icon-btn:disabled { opacity:0.4;cursor:default; }
     .success-box{ padding:12px 16px;border-radius:var(--inv-radius-sm);background:rgba(67,160,71,0.08);border:1px solid rgba(67,160,71,0.22);font-size:13px;color:#43a047;line-height:1.5; }
 
     /* ── Icon Picker Overlay ── */
@@ -1171,29 +1304,79 @@ class InventarPanel extends LitElement {
               `)}
             </div>
           </div>
-          <div class="action-row">
-            <button class="btn btn-outline" style="flex:1;"
-              ?disabled=${this._backupLoading}
-              @click=${() => this._createBackup()}>
-              <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;">
-                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
-              </svg>
-              ${this._backupLoading?"Erstelle…":this._backupDone?"✅ Erstellt":"Backup erstellen"}
-            </button>
-            <button class="btn ${this._dbClearConfirm?"btn-warn":"btn-danger"}" style="flex:1;"
+          <div class="bk-wrap">
+            <div class="info-box">
+              🔒 Backups werden mit AES-256 verschlüsselt. Das Passwort wird
+              <b>nicht</b> gespeichert — ohne Passwort ist keine Wiederherstellung möglich.
+            </div>
+
+            <input type="password" class="bk-input" placeholder="Passwort für Verschlüsselung / Wiederherstellung"
+              .value=${this._bkPassword || ""}
+              @input=${e => { this._bkPassword = e.target.value; }}>
+
+            <div class="action-row" style="padding:0;">
+              <button class="btn btn-primary" style="flex:1;"
+                ?disabled=${this._bkBusy}
+                @click=${() => this._exportBackup()}>
+                <ha-icon icon="mdi:lock" style="width:16px;height:16px;--mdc-icon-size:16px;"></ha-icon>
+                ${this._bkBusy ? "Bitte warten…" : "Verschlüsseltes Backup"}
+              </button>
+              <button class="btn btn-outline" style="flex:1;"
+                ?disabled=${this._bkBusy}
+                @click=${() => this._pickImportFile()}>
+                <ha-icon icon="mdi:upload" style="width:16px;height:16px;--mdc-icon-size:16px;"></ha-icon>
+                Importieren
+              </button>
+              <input id="bk-import-file" type="file" accept=".invbak" style="display:none;"
+                @change=${e => this._onImportFile(e)}>
+            </div>
+
+            ${this._importName ? html`
+              <div class="bk-import-row">
+                <ha-icon icon="mdi:file-lock-outline" style="width:18px;height:18px;--mdc-icon-size:18px;color:var(--primary-color);"></ha-icon>
+                <span class="bk-import-name">${this._importName}</span>
+                <button class="btn btn-primary btn-sm" ?disabled=${this._bkBusy}
+                  @click=${() => this._importBackup()}>Wiederherstellen</button>
+              </div>` : ""}
+
+            ${this._bkMsg ? html`<div class="bk-msg ok">${this._bkMsg}</div>` : ""}
+            ${this._bkErr ? html`<div class="bk-msg err">${this._bkErr}</div>` : ""}
+
+            <div class="bk-list-title">Backups auf dem Server (${(this._serverBackups || []).length})</div>
+            ${(this._serverBackups || []).length === 0
+              ? html`<div class="bk-empty">Noch keine Server-Backups vorhanden</div>`
+              : (this._serverBackups || []).map(b => html`
+                <div class="bk-item">
+                  <div class="bk-item-info">
+                    <div class="bk-item-name">${b.filename}</div>
+                    <div class="bk-item-meta">${(b.created || "").replace("T", " ")} · ${this._fmtSize(b.size)}</div>
+                  </div>
+                  <div class="bk-item-actions">
+                    <button class="bk-icon-btn" title="Wiederherstellen" ?disabled=${this._bkBusy}
+                      @click=${() => this._restoreServer(b.filename)}>
+                      <ha-icon icon="mdi:backup-restore" style="width:20px;height:20px;--mdc-icon-size:20px;"></ha-icon>
+                    </button>
+                    <button class="bk-icon-btn" title="Herunterladen"
+                      @click=${() => this._downloadServer(b.filename)}>
+                      <ha-icon icon="mdi:download" style="width:20px;height:20px;--mdc-icon-size:20px;"></ha-icon>
+                    </button>
+                    <button class="bk-icon-btn danger" title="Löschen"
+                      @click=${() => this._deleteServer(b.filename)}>
+                      <ha-icon icon="mdi:delete-outline" style="width:20px;height:20px;--mdc-icon-size:20px;"></ha-icon>
+                    </button>
+                  </div>
+                </div>`)}
+
+            <button class="btn ${this._dbClearConfirm ? "btn-warn" : "btn-danger"}" style="width:100%;margin-top:4px;"
               ?disabled=${this._dbClearLoading}
               @click=${() => this._clearDb()}>
-              <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;">
-                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-              </svg>
-              ${this._dbClearLoading?"Leere…":this._dbClearConfirm?"Nochmal tippen!":"DB leeren"}
+              <ha-icon icon="mdi:delete-sweep" style="width:16px;height:16px;--mdc-icon-size:16px;"></ha-icon>
+              ${this._dbClearLoading ? "Leere…" : this._dbClearConfirm ? "Nochmal tippen!" : "Datenbank leeren"}
             </button>
-          </div>
-          ${this._dbClearConfirm ? html`
-            <div style="padding:0 18px 14px;">
+            ${this._dbClearConfirm ? html`
               <div class="danger-box">Alle Produktdaten werden unwiderruflich gelöscht. Noch einmal tippen.</div>
-            </div>
-          ` : ""}
+            ` : ""}
+          </div>
         `
       )}
     `;
