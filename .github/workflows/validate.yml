@@ -28,7 +28,3 @@ jobs:
         uses: hacs/action@main
         with:
           category: integration
-          # 'brands' erfordert einen separaten PR an home-assistant/brands
-          # und ist nur fuer die HACS-Default-Liste noetig, nicht fuer ein
-          # manuell hinzugefuegtes Custom-Repository.
-          ignore: brands
