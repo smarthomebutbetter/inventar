@@ -30,7 +30,8 @@ def _remove_panel(hass, url_path: str) -> None:
 
 async def async_register_panel(hass):
     global _STATIC_PATH_REGISTERED, _WS_DASHBOARD_REGISTERED
-    frontend_path = Path(__file__).parent / "frontend"
+    # panel.py liegt in api/ -> frontend/ liegt eine Ebene hoeher
+    frontend_path = Path(__file__).parent.parent / "frontend"
     ts = int(time.time())
 
     # Static-Path nur einmal pro HA-Prozess registrieren (nicht abmeldbar)

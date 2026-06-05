@@ -566,7 +566,7 @@ class InventarMainPanel extends LitElement {
   async _loadAndStartJsQR(video) {
     if (typeof window.jsQR === "function") { this._startJsQRLoop(video, window.jsQR); return; }
     try {
-      const r = await fetch("/api/inventar_panel/jsQR.min.js");
+      const r = await fetch("/api/inventar_panel/vendor/jsQR.min.js");
       if (!r.ok) throw new Error("HTTP " + r.status);
       const code = await r.text();
 

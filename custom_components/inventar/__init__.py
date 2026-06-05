@@ -6,10 +6,10 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .settings import InventarSettingsManager
-from .websockets import async_register_websockets
-from .panel import async_register_panel
-from .services import async_register_services, _remove_from_configuration_yaml
+from .core.settings import InventarSettingsManager
+from .api.websockets import async_register_websockets
+from .api.panel import async_register_panel
+from .api.services import async_register_services, _remove_from_configuration_yaml
 from .coordinator import InventarCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -70,7 +70,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Hauptpanel registrieren falls bereits generiert
     settings = hass.data[DOMAIN]["settings_manager"].all
     if settings.get("dashboard", {}).get("generated"):
-        from .panel import async_register_main_panel
+        from .api.panel import async_register_main_panel
         try:
             await async_register_main_panel(hass)
             _LOGGER.info("Inventar-Hauptpanel automatisch registriert")
@@ -104,7 +104,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Sidebar-Panels abmelden, damit ein anschliessendes Setup (Reload) sie
     # ohne "Overwriting panel"-Fehler neu registrieren kann.
-    from .panel import _remove_panel
+    from .api.panel import _remove_panel
     _remove_panel(hass, "inventar-settings")
     _remove_panel(hass, "inventar")
 
