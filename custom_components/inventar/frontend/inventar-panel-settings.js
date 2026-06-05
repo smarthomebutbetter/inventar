@@ -319,10 +319,12 @@ class InventarPanel extends LitElement {
     this._restartLoading = true; this._restartDone = false;
     try {
       await this.hass.connection.sendMessagePromise({ type: "inventar/integration/reload" });
-    } catch (_) {
-      try { await this.hass.callService("homeassistant", "reload_custom_templates", {}); } catch (__) {}
+      this._restartDone = true;
+      setTimeout(() => { this._restartDone = false; }, 2500);
+    } catch (e) {
+      console.error("[Settings] Reload:", e);
     }
-    setTimeout(() => { this._restartLoading = false; this._restartDone = true; }, 1200);
+    this._restartLoading = false;
   }
 
   // ── Backup / Restore ─────────────────────────────────────

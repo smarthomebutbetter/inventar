@@ -696,6 +696,67 @@ async def ws_backup_delete(
     connection.send_result(msg["id"], {"success": ok})
 
 
+# ── Integration neu laden / Datenbank leeren ──────────────────────────────
+@websocket_api.websocket_command({
+    vol.Required("type"): "inventar/integration/reload",
+})
+@websocket_api.async_response
+async def ws_integration_reload(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict,
+) -> None:
+    """Laedt den Inventar-Config-Entry neu (reload-sicheres Setup)."""
+    entries = hass.config_entries.async_entries(DOMAIN)
+    if not entries:
+        connection.send_error(msg["id"], "no_entry", "Keine Konfiguration gefunden")
+        return
+    try:
+        await hass.config_entries.async_reload(entries[0].entry_id)
+    except Exception as err:
+        _LOGGER.error("Integration-Reload fehlgeschlagen: %s", err)
+        connection.send_error(msg["id"], "reload_failed", str(err))
+        return
+    connection.send_result(msg["id"], {"success": True})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "inventar/db/clear",
+})
+@websocket_api.async_response
+async def ws_db_clear(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict,
+) -> None:
+    """Loescht ALLE Produkt-YAMLs (Bilder bleiben erhalten)."""
+    produkt_ordner = _produkt_ordner(hass)
+
+    def _clear():
+        count = 0
+        if os.path.isdir(produkt_ordner):
+            for name in os.listdir(produkt_ordner):
+                if name.endswith(".yaml"):
+                    try:
+                        os.remove(os.path.join(produkt_ordner, name))
+                        count += 1
+                    except OSError:
+                        pass
+        return count
+
+    try:
+        deleted = await hass.async_add_executor_job(_clear)
+    except Exception as err:
+        _LOGGER.error("Datenbank leeren fehlgeschlagen: %s", err)
+        connection.send_error(msg["id"], "clear_failed", str(err))
+        return
+
+    coordinator = hass.data[DOMAIN].get("coordinator")
+    if coordinator is not None:
+        await coordinator.async_request_refresh()
+    connection.send_result(msg["id"], {"success": True, "deleted": deleted})
+
+
 # Prozess-globaler Guard: WebSocket-Commands lassen sich nicht abmelden und
 # duerfen daher pro HA-Prozess nur einmal registriert werden. Die Handler holen
 # Coordinator/Settings zur Laufzeit aus hass.data — ein Reload braucht sie nicht
@@ -729,5 +790,8 @@ def async_register_websockets(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_backup_restore_server)
     websocket_api.async_register_command(hass, ws_backup_download)
     websocket_api.async_register_command(hass, ws_backup_delete)
+
+    websocket_api.async_register_command(hass, ws_integration_reload)
+    websocket_api.async_register_command(hass, ws_db_clear)
 
     _WEBSOCKETS_REGISTERED = True
