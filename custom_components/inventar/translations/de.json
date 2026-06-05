@@ -1,0 +1,36 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Inventar einrichten",
+        "description": "Willkommen bei der Inventar Integration! Richte in wenigen Schritten dein persönliches Lagerverwaltungssystem ein.",
+        "data": {
+          "dashboard_name": "Dashboard-Name",
+          "produkt_ordner": "Produkt-Ordner"
+        },
+        "data_description": {
+          "dashboard_name": "Name des Dashboards wie er in der HA-Seitenleiste erscheint.",
+          "produkt_ordner": "Pfad zum Ordner in dem deine Produkte gespeichert werden. Wird automatisch angelegt."
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Inventar ist bereits eingerichtet. Nur eine Instanz ist erlaubt."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Inventar Einstellungen",
+        "data": {
+          "dashboard_name": "Dashboard-Name",
+          "produkt_ordner": "Produkt-Ordner"
+        },
+        "data_description": {
+          "dashboard_name": "Name des Dashboards wie er in der HA-Seitenleiste erscheint.",
+          "produkt_ordner": "Pfad zum Ordner in dem deine Produkte gespeichert werden."
+        }
+      }
+    }
+  }
+}

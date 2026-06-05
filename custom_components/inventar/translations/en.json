@@ -1,0 +1,30 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Inventar",
+        "description": "Basic settings for Inventar",
+        "data": {
+          "produkt_ordner": "Product folder",
+          "dashboard_path": "Dashboard path",
+          "kategorien": "Categories (comma separated)"
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Inventar is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Inventar options",
+        "data": {
+          "produkt_ordner": "Product folder",
+          "dashboard_path": "Dashboard path",
+          "kategorien": "Categories (comma separated)"
+        }
+      }
+    }
+  }
+}

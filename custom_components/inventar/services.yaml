@@ -1,0 +1,76 @@
+produkt_erstellen:
+  name: Produkt erstellen
+  description: Erstellt ein neues Produkt.
+  fields:
+    key:
+      required: true
+      selector:
+        text:
+    produktname:
+      required: true
+      selector:
+        text:
+    artikelnummer:
+      required: true
+      selector:
+        text:
+    bild_dateiname:
+      required: false
+      selector:
+        text:
+    bild_base64:
+      required: false
+      selector:
+        text:
+
+produkt_bearbeiten:
+  name: Produkt bearbeiten
+  description: Bearbeitet ein bestehendes Produkt.
+  fields:
+    key:
+      required: true
+      selector:
+        text:
+    bild_dateiname:
+      required: false
+      selector:
+        text:
+    bild_base64:
+      required: false
+      selector:
+        text:
+
+produkt_loeschen:
+  name: Produkt löschen
+  description: Löscht ein Produkt.
+  fields:
+    key:
+      required: true
+      selector:
+        text:
+
+bestand_aendern:
+  name: Bestand ändern
+  description: Ändert den Bestand eines Produkts.
+  fields:
+    key:
+      required: true
+      selector:
+        text:
+    delta:
+      required: true
+      selector:
+        number:
+
+registry_aktualisieren:
+  name: Registry aktualisieren
+  description: Lädt alle Produkte neu.
+
+qr_generieren:
+  name: QR generieren
+  description: Erzeugt eine QR-PNG für ein Produkt.
+  fields:
+    key:
+      required: true
+      selector:
+        text:

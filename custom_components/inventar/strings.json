@@ -1,0 +1,30 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Inventar einrichten",
+        "description": "Grundeinstellungen für Inventar",
+        "data": {
+          "produkt_ordner": "Produktordner",
+          "dashboard_path": "Dashboard-Pfad",
+          "kategorien": "Kategorien (kommagetrennt)"
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Inventar ist bereits eingerichtet."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Inventar Optionen",
+        "data": {
+          "produkt_ordner": "Produktordner",
+          "dashboard_path": "Dashboard-Pfad",
+          "kategorien": "Kategorien (kommagetrennt)"
+        }
+      }
+    }
+  }
+}
