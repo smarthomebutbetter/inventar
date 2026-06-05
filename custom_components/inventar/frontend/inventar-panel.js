@@ -33,6 +33,10 @@ class InventarMainPanel extends LitElement {
     _scannerOpen:           { state: true },
     _scannerError:          { state: true },
     _scannerManual:         { state: true },
+    _torchSupported:        { state: true },
+    _torchOn:               { state: true },
+    _zoomSupported:         { state: true },
+    _zoomValue:             { state: true },
     _settings:              { state: true },
   };
 
@@ -67,6 +71,16 @@ class InventarMainPanel extends LitElement {
     this._scannerManual         = false;
     this._scannerStream         = null;
     this._scannerInterval       = null;
+    this._scannerTrack          = null;   // aktiver Video-Track (Torch/Zoom)
+    this._torchSupported        = false;
+    this._torchOn               = false;
+    this._zoomSupported         = false;
+    this._zoomValue             = 1;
+    this._zoomMin               = 1;
+    this._zoomMax               = 1;
+    this._zoomStep              = 0.1;
+    this._pinchStartDist        = 0;
+    this._pinchStartZoom        = 1;
     this._settings              = {};
     this._bestandLocked         = false;
     this._bestandLockTimer      = null;
@@ -382,15 +396,47 @@ class InventarMainPanel extends LitElement {
     catch (e) {}
   }
 
-  _downloadQr(productName) {
+  async _downloadQr(productName) {
     if (!this._qrData) return;
     const filename = `qr_${(productName || "qrcode").toLowerCase().replace(/[^a-z0-9]/g, "_")}.png`;
+
+    // DataURL/URL -> Blob (fuer Web Share & zuverlaessigen Download)
+    let blob = null;
+    try {
+      const resp = await fetch(this._qrData);
+      blob = await resp.blob();
+    } catch (_) {}
+
+    // 1) iOS/Android: Web Share API mit Datei (a.download wird in iOS Safari/
+    //    WKWebView ignoriert) — bevorzugt, wenn Datei-Sharing unterstuetzt wird.
+    if (blob && navigator.canShare) {
+      try {
+        const file = new File([blob], filename, { type: "image/png" });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: filename });
+          return;
+        }
+      } catch (e) {
+        if (e?.name === "AbortError") return; // Nutzer hat abgebrochen
+      }
+    }
+
+    // 2) Desktop/Android Chrome: klassischer Download ueber <a download>
+    const href = blob ? URL.createObjectURL(blob) : this._qrData;
     const a = document.createElement("a");
-    a.href = this._qrData;
+    a.href = href;
     a.download = filename;
+    a.rel = "noopener";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    if (blob) setTimeout(() => URL.revokeObjectURL(href), 4000);
+
+    // 3) iOS-Fallback ohne Web Share: Bild in neuem Tab oeffnen (lange
+    //    gedrueckt halten -> "Bild sichern")
+    if (blob && /iP(hone|ad|od)/.test(navigator.userAgent) && !navigator.canShare) {
+      window.open(href, "_blank");
+    }
   }
 
   // ── Scanner ──────────────────────────────────────────────
@@ -411,12 +457,90 @@ class InventarMainPanel extends LitElement {
       video.srcObject = this._scannerStream;
       video.style.opacity = "0";
       video.oncanplay = () => { video.style.transition = "opacity 0.3s"; video.style.opacity = "1"; };
+      // iOS WKWebView braucht diese Attribute explizit fuer Inline-Wiedergabe
+      video.setAttribute("playsinline", "");
+      video.setAttribute("muted", "");
+      video.setAttribute("autoplay", "");
       await video.play();
+      this._setupCameraControls();
       this._startScanning(video);
     } catch (e) {
       this._scannerError = "Kamerazugriff verweigert. Bitte Berechtigung erteilen.";
       console.error("[Inventar] Kamera:", e);
     }
+  }
+
+  // ── Torch (Blitz) & Zoom ────────────────────────────────
+  _setupCameraControls() {
+    const track = this._scannerStream?.getVideoTracks?.()[0];
+    this._scannerTrack = track || null;
+    this._torchSupported = false;
+    this._torchOn = false;
+    this._zoomSupported = false;
+    if (!track || typeof track.getCapabilities !== "function") return;
+
+    let caps = {};
+    try { caps = track.getCapabilities() || {}; } catch (_) { caps = {}; }
+
+    // Blitz wird in der Regel nur von Android-Chrome unterstuetzt (nicht iOS)
+    if ("torch" in caps) this._torchSupported = true;
+
+    // Hardware-Zoom (Android, teilw. iOS 16+ Safari)
+    if (caps.zoom && typeof caps.zoom.max === "number" && caps.zoom.max > (caps.zoom.min ?? 1)) {
+      this._zoomSupported = true;
+      this._zoomMin  = caps.zoom.min ?? 1;
+      this._zoomMax  = caps.zoom.max;
+      this._zoomStep = caps.zoom.step || 0.1;
+      let cur = this._zoomMin;
+      try { cur = track.getSettings?.().zoom ?? this._zoomMin; } catch (_) {}
+      this._zoomValue = cur;
+    }
+  }
+
+  async _toggleTorch() {
+    if (!this._scannerTrack || !this._torchSupported) return;
+    try {
+      const next = !this._torchOn;
+      await this._scannerTrack.applyConstraints({ advanced: [{ torch: next }] });
+      this._torchOn = next;
+    } catch (e) {
+      console.warn("[Inventar] Torch:", e?.message || e);
+      this._torchSupported = false;
+    }
+  }
+
+  async _setZoom(value) {
+    if (!this._scannerTrack || !this._zoomSupported) return;
+    const v = Math.min(this._zoomMax, Math.max(this._zoomMin, Number(value) || this._zoomMin));
+    try {
+      await this._scannerTrack.applyConstraints({ advanced: [{ zoom: v }] });
+      this._zoomValue = v;
+    } catch (e) {
+      console.warn("[Inventar] Zoom:", e?.message || e);
+    }
+  }
+
+  _onZoomSlider(e) { this._setZoom(e.target.value); }
+
+  // Pinch-to-Zoom auf dem Kamerabild
+  _onScannerTouchStart(e) {
+    if (!this._zoomSupported || e.touches?.length !== 2) return;
+    this._pinchStartDist = this._touchDist(e.touches);
+    this._pinchStartZoom = this._zoomValue;
+  }
+
+  _onScannerTouchMove(e) {
+    if (!this._zoomSupported || e.touches?.length !== 2 || !this._pinchStartDist) return;
+    e.preventDefault();
+    const dist = this._touchDist(e.touches);
+    const factor = dist / this._pinchStartDist;
+    this._setZoom(this._pinchStartZoom * factor);
+  }
+
+  _touchDist(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.hypot(dx, dy);
   }
 
   async _startScanning(video) {
@@ -513,7 +637,17 @@ class InventarMainPanel extends LitElement {
     this._scannerManual = false;
     clearInterval(this._scannerInterval);
     this._scannerInterval = null;
+    // Torch ausschalten bevor der Track gestoppt wird
+    if (this._scannerTrack && this._torchOn) {
+      try { this._scannerTrack.applyConstraints({ advanced: [{ torch: false }] }); } catch (_) {}
+    }
     if (this._scannerStream) { this._scannerStream.getTracks().forEach(t => t.stop()); this._scannerStream = null; }
+    this._scannerTrack = null;
+    this._torchOn = false;
+    this._torchSupported = false;
+    this._zoomSupported = false;
+    this._zoomValue = 1;
+    this._pinchStartDist = 0;
   }
 
   _openSidebar() {
@@ -678,6 +812,13 @@ class InventarMainPanel extends LitElement {
     .scanner-overlay { position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none; }
     .scanner-frame { width:260px;height:260px;border-radius:20px;border:3px solid rgba(255,255,255,0.8);box-shadow:0 0 0 9999px rgba(0,0,0,0.5); }
     .scanner-hint { position:absolute;bottom:60px;left:0;right:0;text-align:center;color:rgba(255,255,255,0.8);font-size:14px;font-weight:500; }
+    .scanner-controls { position:absolute;bottom:110px;left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:16px;z-index:11;padding:0 24px; }
+    .scanner-zoom { display:flex;align-items:center;gap:12px;width:100%;max-width:340px;background:rgba(0,0,0,0.45);border-radius:24px;padding:10px 16px; }
+    .scanner-zoom-slider { flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;background:rgba(255,255,255,0.4);outline:none; }
+    .scanner-zoom-slider::-webkit-slider-thumb { -webkit-appearance:none;appearance:none;width:22px;height:22px;border-radius:50%;background:#fff;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.4); }
+    .scanner-zoom-slider::-moz-range-thumb { width:22px;height:22px;border:none;border-radius:50%;background:#fff;cursor:pointer; }
+    .scanner-ctrl { width:56px;height:56px;border-radius:50%;border:none;background:rgba(255,255,255,0.2);cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;padding:0;transition:background 0.15s,color 0.15s; }
+    .scanner-ctrl.active { background:#fff;color:#111; }
     .scanner-error { position:absolute;bottom:100px;left:24px;right:24px;background:rgba(229,57,53,0.9);border-radius:14px;padding:14px 18px;color:#fff;font-size:14px;text-align:center; }
   `;
 
@@ -774,7 +915,9 @@ class InventarMainPanel extends LitElement {
       </div>
 
       ${this._scannerOpen ? html`
-        <div class="scanner-backdrop">
+        <div class="scanner-backdrop"
+          @touchstart=${(e)=>this._onScannerTouchStart(e)}
+          @touchmove=${(e)=>this._onScannerTouchMove(e)}>
           <div class="scanner-header">
             <div class="scanner-title">QR-Code scannen</div>
             <button class="scanner-close" @click=${()=>this._closeScanner()}>
@@ -785,10 +928,28 @@ class InventarMainPanel extends LitElement {
             <ha-icon icon="mdi:camera" style="width:48px;height:48px;color:rgba(255,255,255,0.4);--mdc-icon-size:48px;"></ha-icon>
             <span class="scanner-loading-text">Kamera startet…</span>
           </div>
-          <video id="scanner-video" class="scanner-video" playsinline muted
+          <video id="scanner-video" class="scanner-video" playsinline muted autoplay
             @canplay=${() => { const l = this.shadowRoot?.querySelector("#scanner-loading"); if(l) l.style.display="none"; }}>
           </video>
           <div class="scanner-overlay"><div class="scanner-frame"></div></div>
+
+          ${(this._torchSupported || this._zoomSupported) ? html`
+            <div class="scanner-controls">
+              ${this._zoomSupported ? html`
+                <div class="scanner-zoom">
+                  <ha-icon icon="mdi:magnify-minus-outline" style="width:20px;height:20px;--mdc-icon-size:20px;color:#fff;"></ha-icon>
+                  <input type="range" class="scanner-zoom-slider"
+                    min="${this._zoomMin}" max="${this._zoomMax}" step="${this._zoomStep}"
+                    .value="${String(this._zoomValue)}"
+                    @input=${(e)=>this._onZoomSlider(e)}>
+                  <ha-icon icon="mdi:magnify-plus-outline" style="width:20px;height:20px;--mdc-icon-size:20px;color:#fff;"></ha-icon>
+                </div>` : ""}
+              ${this._torchSupported ? html`
+                <button class="scanner-ctrl ${this._torchOn ? "active" : ""}" @click=${()=>this._toggleTorch()} title="Blitz">
+                  <ha-icon icon="${this._torchOn ? 'mdi:flashlight' : 'mdi:flashlight-off'}" style="width:24px;height:24px;--mdc-icon-size:24px;"></ha-icon>
+                </button>` : ""}
+            </div>` : ""}
+
           ${this._scannerError
             ? html`<div class="scanner-error">${this._scannerError}</div>`
             : html`<div class="scanner-hint">QR-Code in den Rahmen halten</div>`}
