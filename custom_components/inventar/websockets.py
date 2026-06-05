@@ -445,7 +445,17 @@ async def ws_dev_status(
     })
 
 
+# Prozess-globaler Guard: WebSocket-Commands lassen sich nicht abmelden und
+# duerfen daher pro HA-Prozess nur einmal registriert werden. Die Handler holen
+# Coordinator/Settings zur Laufzeit aus hass.data — ein Reload braucht sie nicht
+# neu zu binden.
+_WEBSOCKETS_REGISTERED = False
+
+
 def async_register_websockets(hass: HomeAssistant) -> None:
+    global _WEBSOCKETS_REGISTERED
+    if _WEBSOCKETS_REGISTERED:
+        return
     websocket_api.async_register_command(hass, ws_get_settings)
     websocket_api.async_register_command(hass, ws_save_settings)
     websocket_api.async_register_command(hass, ws_dismiss_welcome)
@@ -461,3 +471,5 @@ def async_register_websockets(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_dev_enable)
     websocket_api.async_register_command(hass, ws_dev_version_tap)
     websocket_api.async_register_command(hass, ws_dev_status)
+
+    _WEBSOCKETS_REGISTERED = True

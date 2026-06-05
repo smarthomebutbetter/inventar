@@ -102,5 +102,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except Exception as e:
         _LOGGER.warning("Cleanup fehlgeschlagen: %s", e)
 
+    # Sidebar-Panels abmelden, damit ein anschliessendes Setup (Reload) sie
+    # ohne "Overwriting panel"-Fehler neu registrieren kann.
+    from .panel import _remove_panel
+    _remove_panel(hass, "inventar-settings")
+    _remove_panel(hass, "inventar")
+
     hass.data.pop(DOMAIN, None)
     return unload_ok
