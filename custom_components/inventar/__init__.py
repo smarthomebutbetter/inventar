@@ -4,14 +4,13 @@ import os
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 
 from .core.settings import InventarSettingsManager
 from .api.websockets import async_register_websockets
 from .api.panel import async_register_panel
 from .api.services import async_register_services, _remove_from_configuration_yaml
 from .coordinator import InventarCoordinator
-from .const import EVENT_PRODUCT_CHANGED
 
 _LOGGER = logging.getLogger(__name__)
 DOMAIN = "inventar"
@@ -60,16 +59,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data[DOMAIN]["coordinator"] = coordinator
     hass.data[DOMAIN][entry.entry_id] = coordinator
-
-    # Broadcasting: bei jeder Coordinator-Aktualisierung ein Bus-Event feuern,
-    # damit ALLE verbundenen Panel-Clients sofort neu laden (Multi-Geraete-Sync).
-    # Alle Mutationen (Anlegen/Bearbeiten/Bestand/Loeschen/Import/Restore/QR)
-    # laufen ueber async_request_refresh und loesen damit den Listener aus.
-    @callback
-    def _broadcast_change() -> None:
-        hass.bus.async_fire(EVENT_PRODUCT_CHANGED)
-
-    entry.async_on_unload(coordinator.async_add_listener(_broadcast_change))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

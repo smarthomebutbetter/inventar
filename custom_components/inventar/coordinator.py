@@ -20,6 +20,7 @@ from .const import (
     DEFAULT_KATEGORIEN,
     DEFAULT_PRODUKT_ORDNER,
     DOMAIN,
+    EVENT_PRODUCT_CHANGED,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -238,9 +239,28 @@ class InventarCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return "yellow"
         return "green"
 
+    def fire_changed(self, key: str | None = None, deleted: bool = False) -> None:
+        """Broadcastet eine Aenderung an ALLE verbundenen Clients.
+
+        Das Event traegt das geaenderte Produkt mit, damit Clients direkt
+        aktualisieren koennen — ohne Re-Fetch und damit ohne Race mit noch
+        nicht aktualisierten Server-Daten.
+        """
+        data: dict[str, Any] = {}
+        if key:
+            data["key"] = key
+            if deleted:
+                data["deleted"] = True
+            else:
+                prod = self.get_product(key)
+                if prod is not None:
+                    data["product"] = prod
+        self.hass.bus.async_fire(EVENT_PRODUCT_CHANGED, data)
+
     async def async_write_product(self, product: dict[str, Any]) -> None:
         await self.hass.async_add_executor_job(self._write_product_sync, product)
-        await self.async_request_refresh()
+        await self.async_refresh()
+        self.fire_changed(product.get("key"))
 
     def _write_product_sync(self, product: dict[str, Any]) -> None:
         import yaml
@@ -294,7 +314,8 @@ class InventarCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def async_delete_product(self, key: str) -> None:
         await self.hass.async_add_executor_job(self._delete_product_sync, key)
-        await self.async_request_refresh()
+        await self.async_refresh()
+        self.fire_changed(key, deleted=True)
 
     def _delete_product_sync(self, key: str) -> None:
         path = self.produkt_ordner / f"{key}.yaml"

@@ -474,7 +474,8 @@ async def _apply_restore(hass: HomeAssistant, result: dict) -> bool:
             await settings_manager.async_save(settings_data)
     coordinator = hass.data[DOMAIN].get("coordinator")
     if coordinator is not None:
-        await coordinator.async_request_refresh()
+        await coordinator.async_refresh()
+        coordinator.fire_changed()  # generischer Broadcast -> Voll-Reload
     return bool(settings_data)
 
 
@@ -753,7 +754,8 @@ async def ws_db_clear(
 
     coordinator = hass.data[DOMAIN].get("coordinator")
     if coordinator is not None:
-        await coordinator.async_request_refresh()
+        await coordinator.async_refresh()
+        coordinator.fire_changed()  # generischer Broadcast -> Voll-Reload
     connection.send_result(msg["id"], {"success": True, "deleted": deleted})
 
 

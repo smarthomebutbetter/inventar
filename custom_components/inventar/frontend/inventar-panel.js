@@ -103,6 +103,7 @@ class InventarMainPanel extends LitElement {
     this._unsubProduct          = null;   // WebSocket-Event-Abo (Sync)
     this._pollTimer             = null;   // Fallback-Polling
     this._refreshing            = false;  // verhindert paralleles Neuladen
+    this._pendingWrites         = new Map(); // key -> {product, expires} (optimistisches Lock)
   }
 
   disconnectedCallback() {
@@ -206,9 +207,44 @@ class InventarMainPanel extends LitElement {
   async _subscribeProductEvents() {
     try {
       this._unsubProduct = await this.hass.connection.subscribeEvents(
-        () => this._refreshData(), "inventar_product_changed"
+        (ev) => this._onRemoteChange(ev), "inventar_product_changed"
       );
     } catch (e) { console.warn("[Inventar] Produkt-Events:", e); }
+  }
+
+  _onRemoteChange(ev) {
+    const d = ev?.data || {};
+    const key = d.key;
+    // Eigenes optimistisches Lock respektieren — frisch lokal gespeicherte
+    // Produkte nicht durch das Broadcast-Echo ueberschreiben.
+    if (key && this._pendingWrites.has(key) && this._pendingWrites.get(key).expires > Date.now()) return;
+
+    if (key && d.deleted) {
+      this._alleProdukte = this._alleProdukte.filter(p => (p.key || p.id) !== key);
+      this._applyFilter();
+      if (this._detailOpen && this._detailProdukt && (this._detailProdukt.key || this._detailProdukt.id) === key) {
+        this._detailOpen = false; this._editMode = false; this._qrOpen = false;
+        this._detailProdukt = null;
+      }
+      return;
+    }
+
+    if (key && d.product) {
+      // Gebroadcastetes Produkt direkt anwenden — kein Re-Fetch, keine Race.
+      const exists = this._alleProdukte.some(p => (p.key || p.id) === key);
+      this._alleProdukte = exists
+        ? this._alleProdukte.map(p => (p.key || p.id) === key ? d.product : p)
+        : [...this._alleProdukte, d.product];
+      this._applyFilter();
+      if (this._detailOpen && this._detailProdukt && (this._detailProdukt.key || this._detailProdukt.id) === key
+          && !this._editMode && !this._bestandLocked) {
+        this._detailProdukt = d.product;
+      }
+      return;
+    }
+
+    // Generisch (Bulk: Import/Restore/DB-leeren) -> komplettes Neuladen
+    this._refreshData();
   }
 
   // Fallback: alle 30s neu laden, falls ein WebSocket-Update verpasst wurde.
@@ -262,9 +298,33 @@ class InventarMainPanel extends LitElement {
   async _loadAlleProdukte() {
     try {
       const r = await this.hass.connection.sendMessagePromise({ type: "inventar/produkte/alle" });
-      this._alleProdukte = r?.produkte ?? [];
+      this._alleProdukte = this._applyPending(r?.produkte ?? []);
       this._applyFilter();
     } catch (e) { console.error("[Inventar] Produkte:", e); }
+  }
+
+  // Optimistisches Lock: gerade lokal gespeicherte Produkte ~3s als fuehrend
+  // behandeln, damit (evtl. verzoegerte) Server-Daten sie nicht ueberschreiben.
+  _markSaved(prod) {
+    if (!prod) return;
+    const key = prod.key || prod.id;
+    if (!key) return;
+    this._pendingWrites.set(key, { product: { ...prod }, expires: Date.now() + 3000 });
+  }
+
+  _applyPending(list) {
+    if (!this._pendingWrites.size) return list;
+    const now = Date.now();
+    for (const [k, v] of this._pendingWrites) if (v.expires <= now) this._pendingWrites.delete(k);
+    if (!this._pendingWrites.size) return list;
+    const seen = new Set();
+    const merged = list.map(p => {
+      const k = p.key || p.id; seen.add(k);
+      const pend = this._pendingWrites.get(k);
+      return pend ? { ...pend.product } : p;
+    });
+    for (const [k, v] of this._pendingWrites) if (!seen.has(k)) merged.push({ ...v.product });
+    return merged;
   }
 
   _scheduleReload(ms = 1500) {
@@ -361,6 +421,7 @@ class InventarMainPanel extends LitElement {
     this._applyFilter();
     try {
       await this.hass.callService("inventar", "bestand_aendern", { key, delta });
+      this._markSaved(this._detailProdukt);
     } catch (e) {
       console.error("[Inventar] Bestand:", e);
       this._detailProdukt = { ...this._detailProdukt, bestand: alt };
@@ -382,6 +443,7 @@ class InventarMainPanel extends LitElement {
     this._applyFilter();
     try {
       await this.hass.callService("inventar", "produkt_aktualisieren", { key, favorit: neuFavorit });
+      this._markSaved(this._detailProdukt);
     } catch (e) {
       console.error("[Inventar] Favorit:", e);
       this._detailProdukt = { ...this._detailProdukt, favorit: p.favorit };
@@ -419,6 +481,7 @@ class InventarMainPanel extends LitElement {
       this._detailProdukt = { ...this._editData };
       this._alleProdukte = this._alleProdukte.map(i => (i.key || i.id) === key ? { ...this._editData } : i);
       this._applyFilter();
+      this._markSaved(this._editData);
       this._editMode = false;
       ok = true;
     } catch (e) { console.error("[Inventar] Speichern:", e); }
