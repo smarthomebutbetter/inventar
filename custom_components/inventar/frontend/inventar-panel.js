@@ -111,6 +111,21 @@ class InventarMainPanel extends LitElement {
     if (this._io) { this._io.disconnect(); this._io = null; }
     if (this._unsubProduct) { try { this._unsubProduct(); } catch (_) {} this._unsubProduct = null; }
     this._stopPolling();
+    this._setBodyScrollLock(false);   // Hintergrund-Scroll nie gesperrt zuruecklassen
+  }
+
+  // Sperrt den Hintergrund-Scroll, solange ein Modal/Popup offen ist.
+  _setBodyScrollLock(locked) {
+    try {
+      const ov = locked ? "hidden" : "";
+      document.body.style.overflow = ov;
+      document.documentElement.style.overflow = ov;
+    } catch (_) {}
+  }
+
+  _syncBodyScrollLock() {
+    const anyOpen = this._detailOpen || this._neuOpen || this._kategoriePickerOpen || this._scannerOpen;
+    this._setBodyScrollLock(anyOpen);
   }
 
   // Laedt weitere Produkte, sobald der Sentinel am Listenende sichtbar wird —
@@ -133,6 +148,7 @@ class InventarMainPanel extends LitElement {
       this._hassReady = true;
       this._initialLoad();
     }
+    this._syncBodyScrollLock();
     this.updateComplete.then(() => {
       const sheets = this.shadowRoot?.querySelectorAll(".sheet");
       if (sheets) sheets.forEach(s => {

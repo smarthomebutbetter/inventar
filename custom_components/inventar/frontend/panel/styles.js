@@ -47,7 +47,7 @@ export const panelStyles = css`
     .backdrop { position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:50;display:flex;align-items:flex-end;animation:fadeIn 0.2s ease; }
     .backdrop.center { align-items:center;justify-content:center;padding:16px; }
     @keyframes fadeIn { from{opacity:0}to{opacity:1} }
-    .sheet { width:100%;max-height:92vh;background:var(--secondary-background-color,var(--primary-background-color));border-radius:var(--m3-radius-large) var(--m3-radius-large) 0 0;overflow-y:auto;padding-bottom:52px;animation:slideUp 0.3s cubic-bezier(0.32,0.72,0,1); }
+    .sheet { width:100%;max-height:92vh;background:var(--secondary-background-color,var(--primary-background-color));border-radius:var(--m3-radius-large) var(--m3-radius-large) 0 0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:52px;animation:slideUp 0.3s cubic-bezier(0.32,0.72,0,1); }
     @keyframes slideUp { from{transform:translateY(100%)}to{transform:translateY(0)} }
     /* Zentriertes Modal (Detail/Bearbeiten + Anlegen) statt Bottom-Sheet */
     .sheet.modal { max-width:600px;width:100%;max-height:90vh;border-radius:var(--m3-radius-large);padding-bottom:24px;animation:modalIn 0.25s cubic-bezier(0.32,0.72,0,1); }
@@ -114,7 +114,7 @@ export const panelStyles = css`
     .neu-error { background:rgba(229,57,53,0.15);border-radius:12px;padding:12px 16px;margin-bottom:10px;font-size:13px;color:#e57373; }
     .kat-btn { width:100%;background:none;border:none;border-bottom:1.5px solid var(--inv-line);padding:4px 0 9px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-family:inherit;font-size:16px;font-weight:500; }
     .kat-btn:focus { border-bottom-color:var(--primary-color);outline:none; }
-    .picker-sheet { width:100%;background:var(--secondary-background-color,var(--card-background-color));border-radius:28px 28px 0 0;max-height:70vh;overflow-y:auto;animation:slideUp 0.25s cubic-bezier(0.32,0.72,0,1);padding-bottom:32px; }
+    .picker-sheet { width:100%;background:var(--secondary-background-color,var(--card-background-color));border-radius:28px 28px 0 0;max-height:70vh;overflow-y:auto;overscroll-behavior:contain;animation:slideUp 0.25s cubic-bezier(0.32,0.72,0,1);padding-bottom:32px; }
     .picker-hdr { display:flex;align-items:center;justify-content:space-between;padding:16px 18px 8px;border-bottom:1px solid var(--inv-line); }
     .picker-ttl { font-size:16px;font-weight:700;color:var(--primary-text-color); }
     .picker-opt { display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border:none;border-bottom:1px solid var(--inv-line);cursor:pointer;font-size:15px;color:var(--primary-text-color);background:none;width:100%;font-family:inherit;text-align:left;transition:background 0.1s; }
