@@ -748,11 +748,11 @@ class InventarMainPanel extends LitElement {
   render() {
     return html`
       ${this._detailOpen && this._detailProdukt ? html`
-        <div class="backdrop" @click=${(e) => e.target===e.currentTarget && this._closeDetail()}>
+        <div class="backdrop center" @click=${(e) => e.target===e.currentTarget && this._closeDetail()}>
           ${this._qrOpen ? this._renderQR() : this._renderDetail()}
         </div>` : ""}
       ${this._neuOpen ? html`
-        <div class="backdrop" @click=${(e) => e.target===e.currentTarget && this._closeNeu()}>
+        <div class="backdrop center" @click=${(e) => e.target===e.currentTarget && this._closeNeu()}>
           ${this._renderNeu()}
         </div>` : ""}
       ${this._kategoriePickerOpen ? html`
@@ -820,9 +820,12 @@ class InventarMainPanel extends LitElement {
                       <div class="produkt-name">${pname}</div>
                       <div class="produkt-sub">${p.artikelnummer?`${this._t("art_nr","Art.-Nr.")} ${p.artikelnummer}`:""}</div>
                     </div>
-                    <ha-icon class="status-ic" icon="${si.icon}" title="Status: ${si.label}"
-                      style="color:${si.color};width:18px;height:18px;--mdc-icon-size:18px;flex-shrink:0;align-self:center;"></ha-icon>
-                    <ha-icon icon="mdi:chevron-right" style="width:20px;height:20px;color:var(--secondary-text-color);flex-shrink:0;align-self:center;"></ha-icon>
+                    <div class="card-trailing">
+                      <ha-icon class="status-ic" icon="${si.icon}" title="Status: ${si.label}"
+                        style="color:${si.color};--mdc-icon-size:20px;width:20px;height:20px;display:block;"></ha-icon>
+                      <ha-icon icon="mdi:chevron-right"
+                        style="color:var(--secondary-text-color);--mdc-icon-size:20px;width:20px;height:20px;display:block;"></ha-icon>
+                    </div>
                   </div>`);
               });
               if (this._visibleCount < this._filtered.length) {
@@ -922,7 +925,7 @@ class InventarMainPanel extends LitElement {
   _renderNeu() {
     const d = this._neuData;
     const tmpKey = this._generateKey(d.produktname || "neu") || "neu";
-    return html`<div class="sheet">
+    return html`<div class="sheet modal">
       <div class="handle"></div>
       <div class="sheet-hdr">
         <button class="icon-btn" @click=${this._closeNeu}>
@@ -1003,7 +1006,7 @@ class InventarMainPanel extends LitElement {
     const alleEditF=[["Produktname","produktname"],["Anzeige-Name","anzeige_name"],["Typ","typ"],["Serie","serie"],["Hersteller","hersteller"],["Artikelnummer","artikelnummer"],["Mindestmenge","mindestmenge"],["Mindestbestellmenge","mindestbestellmenge"],["Preis (€)","preis"],["Einheit","einheit"],["Produktlink","produktlink"]];
     const editF=alleEditF.filter(([,f])=>this._feldSichtbar(f));
 
-    return html`<div class="sheet">
+    return html`<div class="sheet modal">
       <div class="handle"></div>
       <div class="sheet-hdr" style="justify-content:space-between;">
         <button class="icon-btn fav-btn ${p.favorit?"fav-active":""}" @click=${()=>this._toggleFavorit()}>
@@ -1132,7 +1135,7 @@ class InventarMainPanel extends LitElement {
     const iconDef = QR_ICONS.find(i => i.id === iconId);
     const name    = p.anzeige_name || p.produktname;
 
-    return html`<div class="sheet">
+    return html`<div class="sheet modal">
       <div class="handle"></div>
       <div class="qr-hdr">
         <button class="icon-btn" @click=${()=>{this._qrOpen=false;}}>

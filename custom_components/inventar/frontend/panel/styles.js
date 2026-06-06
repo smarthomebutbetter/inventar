@@ -31,6 +31,7 @@ export const panelStyles = css`
     .produkt-name { font-size:15px;font-weight:600;color:var(--primary-text-color);overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
     .produkt-sub { font-size:12px;color:var(--secondary-text-color);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
     .status-dot { width:10px;height:10px;border-radius:50%;flex-shrink:0;box-shadow:0 0 8px currentColor;align-self:center; }
+    .card-trailing { display:flex;align-items:center;gap:4px;flex-shrink:0;align-self:center; }
     .hersteller-header { font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--secondary-text-color);padding:calc(var(--m3-space)*2) 4px calc(var(--m3-space)*0.75); }
     .empty { text-align:center;padding:60px 24px;color:var(--secondary-text-color); }
     .empty-icon { --mdc-icon-size:52px;width:52px;height:52px;margin:0 auto 12px;color:var(--secondary-text-color);display:block; }
@@ -44,9 +45,13 @@ export const panelStyles = css`
     .fab { width:58px;height:58px;border-radius:18px;background:var(--primary-color);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(0,0,0,0.35);transition:transform 0.12s; }
     .fab:active { transform:scale(0.91); }
     .backdrop { position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:50;display:flex;align-items:flex-end;animation:fadeIn 0.2s ease; }
+    .backdrop.center { align-items:center;justify-content:center;padding:16px; }
     @keyframes fadeIn { from{opacity:0}to{opacity:1} }
     .sheet { width:100%;max-height:92vh;background:var(--secondary-background-color,var(--primary-background-color));border-radius:var(--m3-radius-large) var(--m3-radius-large) 0 0;overflow-y:auto;padding-bottom:52px;animation:slideUp 0.3s cubic-bezier(0.32,0.72,0,1); }
     @keyframes slideUp { from{transform:translateY(100%)}to{transform:translateY(0)} }
+    /* Zentriertes Modal (Detail/Bearbeiten + Anlegen) statt Bottom-Sheet */
+    .sheet.modal { max-width:600px;width:100%;max-height:90vh;border-radius:var(--m3-radius-large);padding-bottom:24px;animation:modalIn 0.25s cubic-bezier(0.32,0.72,0,1); }
+    @keyframes modalIn { from{opacity:0;transform:translateY(16px) scale(0.98)} to{opacity:1;transform:none} }
     .handle { width:36px;height:4px;border-radius:2px;background:var(--inv-fill-2);margin:12px auto 0; }
     .sheet-hdr { display:flex;justify-content:flex-end;padding:8px 14px 4px; }
     .sheet-body { padding:4px 14px 0; }
