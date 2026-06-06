@@ -62,7 +62,8 @@ async def async_register_services(hass, coordinator, entry):
             _LOGGER.error("Inventar-Panel aktualisieren fehlgeschlagen: %s", e)
 
     async def handle_restart(call):
-        await hass.services.async_call("homeassistant", "restart")
+        # Nur die Integration neu laden — kein kompletter Home-Assistant-Neustart
+        await hass.config_entries.async_reload(entry.entry_id)
 
     # ── Bestand ändern ────────────────────────────────────────────────────
 

@@ -132,8 +132,16 @@ class InventarCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "suchbegriffe": [self._s(x) for x in suchbegriffe if self._s(x)],
             "kurzbeschreibung": self._s(raw.get("kurzbeschreibung")),
             "shop_kategorie": self._s(raw.get("shop_kategorie")),
-            "tag_id": key,  # immer der Key — unveränderlich
-            "qr_text": f"https://www.home-assistant.io/tag/{key}",  # Standard HA Tag-Link
+            "tag_id": self._s(raw.get("tag_id")) or key,
+            # QR-Inhalt: gespeicherten Wert bevorzugen, sonst HA-Tag-Link als Default
+            "qr_text": self._s(raw.get("qr_text")) or f"https://www.home-assistant.io/tag/{key}",
+            "qr_mode": self._s(raw.get("qr_mode")),
+            "qr_design": self._s(raw.get("qr_design")),
+            "qr_public_url": self._s(raw.get("qr_public_url")),
+            "qr_last_refresh": self._s(raw.get("qr_last_refresh")),
+            "created_at": self._s(raw.get("created_at")),
+            "last_change": self._s(raw.get("last_change")),
+            "last_update": self._s(raw.get("last_update")),
             "buttons": buttons,
         }
 
@@ -266,8 +274,16 @@ class InventarCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "suchbegriffe": product.get("suchbegriffe", []),
             "kurzbeschreibung": product.get("kurzbeschreibung", ""),
             "shop_kategorie": product.get("shop_kategorie", ""),
-            "tag_id": key,
-            "qr_text": f"https://www.home-assistant.io/tag/{key}",
+            "tag_id": product.get("tag_id") or key,
+            # QR-/Meta-Felder erhalten, damit Regenerierung & Zeitstempel persistieren
+            "qr_text": product.get("qr_text") or f"https://www.home-assistant.io/tag/{key}",
+            "qr_mode": product.get("qr_mode", ""),
+            "qr_design": product.get("qr_design", ""),
+            "qr_public_url": product.get("qr_public_url", ""),
+            "qr_last_refresh": product.get("qr_last_refresh", ""),
+            "created_at": product.get("created_at", ""),
+            "last_change": product.get("last_change", ""),
+            "last_update": product.get("last_update", ""),
             "buttons": product.get("buttons", {}),
         }
 
