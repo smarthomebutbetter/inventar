@@ -100,11 +100,16 @@ class InventarMainPanel extends LitElement {
     this._hassReady             = false;
     this._reloadTimer           = null;
     this._io                    = null;   // IntersectionObserver fuer Nachladen
+    this._unsubProduct          = null;   // WebSocket-Event-Abo (Sync)
+    this._pollTimer             = null;   // Fallback-Polling
+    this._refreshing            = false;  // verhindert paralleles Neuladen
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     if (this._io) { this._io.disconnect(); this._io = null; }
+    if (this._unsubProduct) { try { this._unsubProduct(); } catch (_) {} this._unsubProduct = null; }
+    this._stopPolling();
   }
 
   // Laedt weitere Produkte, sobald der Sentinel am Listenende sichtbar wird —
@@ -146,6 +151,8 @@ class InventarMainPanel extends LitElement {
     await Promise.all([this._loadStrings(), this._loadSettings(), this._loadAlleProdukte()]);
     this._loading = false;
     this._subscribeTagEvents();
+    this._subscribeProductEvents();
+    this._startPolling();
     this._checkUrlParam();
   }
 
@@ -192,6 +199,43 @@ class InventarMainPanel extends LitElement {
         if (produkt) { if (navigator.vibrate) navigator.vibrate(30); this._openDetail(produkt); }
       }, "tag_scanned");
     } catch (e) { console.warn("[Inventar] Tag-Events:", e); }
+  }
+
+  // Multi-Geraete-Sync: Server feuert "inventar_product_changed" bei jeder
+  // Aenderung -> alle Clients laden sofort neu.
+  async _subscribeProductEvents() {
+    try {
+      this._unsubProduct = await this.hass.connection.subscribeEvents(
+        () => this._refreshData(), "inventar_product_changed"
+      );
+    } catch (e) { console.warn("[Inventar] Produkt-Events:", e); }
+  }
+
+  // Fallback: alle 30s neu laden, falls ein WebSocket-Update verpasst wurde.
+  _startPolling() {
+    this._stopPolling();
+    this._pollTimer = setInterval(() => this._refreshData(), 30000);
+  }
+
+  _stopPolling() {
+    if (this._pollTimer) { clearInterval(this._pollTimer); this._pollTimer = null; }
+  }
+
+  async _refreshData() {
+    if (this._refreshing) return;              // kein paralleles Doppel-Laden
+    this._refreshing = true;
+    try {
+      await this._loadAlleProdukte();
+      // Offenes Detail mit frischen Daten aktualisieren — aber nicht waehrend
+      // einer laufenden Bearbeitung / optimistischen Bestandsaenderung.
+      if (this._detailOpen && this._detailProdukt && !this._editMode && !this._bestandLocked) {
+        const key = this._detailProdukt.key || this._detailProdukt.id;
+        const fresh = this._alleProdukte.find(p => (p.key || p.id) === key);
+        if (fresh) this._detailProdukt = fresh;
+      }
+    } finally {
+      this._refreshing = false;
+    }
   }
 
   async _loadSettings() {
