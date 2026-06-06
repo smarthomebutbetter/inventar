@@ -1,5 +1,12 @@
 import { LitElement, html, css } from "https://unpkg.com/lit@2?module";
-import { generateQrCode, QR_ICONS } from "/api/inventar_panel/inventar-qr.js";
+
+// Cache-Busting: das ?v aus der eigenen Panel-URL (von panel.py gesetzt) lesen und
+// an unsere Module weiterreichen, damit nach einem Integration-Reload das Panel UND
+// das QR-Modul konsistent frisch geladen werden (statt aus dem Browser-Cache).
+const _ts = new URL(import.meta.url).searchParams.get("v") || "";
+const { generateQrCode, QR_ICONS } = await import(
+  `/api/inventar_panel/inventar-qr.js${_ts ? `?v=${_ts}` : ""}`
+);
 
 const VERSION = "1.0.0";
 
@@ -711,6 +718,7 @@ class InventarMainPanel extends LitElement {
 
   static styles = css`
     :host { display:block;background:var(--primary-background-color);min-height:100vh;font-family:var(--paper-font-body1_-_font-family,sans-serif);--m3-space:8px;--m3-radius-large:28px;--m3-radius-medium:16px;--m3-radius-small:12px;--inv-fill:color-mix(in srgb,var(--primary-text-color) 6%,transparent);--inv-fill-2:color-mix(in srgb,var(--primary-text-color) 10%,transparent);--inv-active:color-mix(in srgb,var(--primary-text-color) 15%,transparent);--inv-line:var(--divider-color);--inv-surface:var(--card-background-color,var(--ha-card-background)); }
+    *{ box-sizing:border-box;-webkit-tap-highlight-color:transparent; }
     :focus-visible { outline:2px solid var(--primary-color);outline-offset:2px; }
     .header { position:sticky;top:0;z-index:20;display:flex;align-items:center;padding:0 16px;height:64px;background:var(--app-header-background-color,var(--primary-background-color));border-bottom:1px solid var(--divider-color);box-shadow:0 1px 8px rgba(0,0,0,0.2); }
     .hamburger { background:none;border:none;cursor:pointer;padding:8px;border-radius:50%;color:var(--primary-text-color);display:flex;align-items:center;flex-shrink:0; }
@@ -718,7 +726,7 @@ class InventarMainPanel extends LitElement {
     .header-title { flex:1;text-align:center;font-size:18px;font-weight:700;color:var(--primary-text-color); }
     .header-right { display:flex;align-items:center;gap:6px;min-width:60px;justify-content:flex-end; }
     .header-version { font-size:12px;color:var(--secondary-text-color); }
-    .content { padding:calc(var(--m3-space)*2) calc(var(--m3-space)*2) 100px; }
+    .content { padding:calc(var(--m3-space)*2) calc(var(--m3-space)*2) 100px;max-width:640px;margin:0 auto; }
     .pills { display:flex;gap:var(--m3-space);overflow-x:auto;padding:calc(var(--m3-space)*0.5) 0 calc(var(--m3-space)*1.5);scrollbar-width:none; }
     .pills::-webkit-scrollbar { display:none; }
     .pill { flex-shrink:0;display:flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--divider-color);cursor:pointer;font-size:14px;font-weight:500;background:var(--card-background-color,var(--ha-card-background));color:var(--secondary-text-color);transition:all 150ms ease; }
