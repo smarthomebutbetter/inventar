@@ -15,6 +15,22 @@ const CHANGELOG = [
   },
 ];
 
+const ROADMAP = [
+  { status: "done",     title: "Verschlüsseltes Backup & Restore", desc: "AES-256, Export/Import" },
+  { status: "done",     title: "Multi-Geräte-Sync in Echtzeit",    desc: "WebSocket-Broadcasting" },
+  { status: "progress", title: "Mehrsprachigkeit aller Panels",    desc: "DE/EN, weitere folgen" },
+  { status: "planned",  title: "CSV-Import / -Export",             desc: "Massenpflege per Tabelle" },
+  { status: "planned",  title: "Etiketten-Druck",                  desc: "QR-Labels direkt drucken" },
+  { status: "idea",     title: "Barcode-Scan (EAN)",               desc: "Produkte per Barcode finden" },
+];
+
+const ROADMAP_STATUS = {
+  done:     { label: "Fertig",    cls: "done" },
+  progress: { label: "In Arbeit", cls: "progress" },
+  planned:  { label: "Geplant",   cls: "planned" },
+  idea:     { label: "Idee",      cls: "idea" },
+};
+
 const KI_MODELS = {
   claude: [
     { id: "claude-opus-4-5",   label: "Claude Opus 4",     desc: "Stärkstes Modell"      },
@@ -607,6 +623,21 @@ class InventarPanel extends LitElement {
     .cl-tag.cl-neu { background:rgba(67,160,71,0.15);color:#43a047; }
     .cl-tag.cl-fix { background:rgba(251,140,0,0.15);color:#fb8c00; }
     .cl-tag.cl-verbessert { background:rgba(var(--rgb-primary-color,99,102,241),0.15);color:var(--primary-color); }
+    .road-row { display:flex;align-items:flex-start;gap:10px;padding:9px 18px;border-bottom:1px solid var(--divider-color); }
+    .road-row:last-of-type { border-bottom:none; }
+    .road-dot { width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:5px; }
+    .road-text { flex:1;min-width:0; }
+    .road-title { font-size:13px;font-weight:600;color:var(--primary-text-color); }
+    .road-desc { font-size:12px;color:var(--secondary-text-color);margin-top:1px; }
+    .road-badge { flex-shrink:0;font-size:10px;font-weight:700;text-transform:uppercase;padding:2px 8px;border-radius:999px;margin-top:2px; }
+    .road-dot.done { background:#43a047; }
+    .road-dot.progress { background:var(--primary-color); }
+    .road-dot.planned { background:#fb8c00; }
+    .road-dot.idea { background:#9e9e9e; }
+    .road-badge.done { background:rgba(67,160,71,0.15);color:#43a047; }
+    .road-badge.progress { background:rgba(var(--rgb-primary-color,99,102,241),0.15);color:var(--primary-color); }
+    .road-badge.planned { background:rgba(251,140,0,0.15);color:#fb8c00; }
+    .road-badge.idea { background:rgba(128,128,128,0.15);color:#9e9e9e; }
     .fb-grid { display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:0 18px; }
     .fb-btn { padding:14px 8px 12px;border-radius:14px;background:var(--secondary-background-color,rgba(128,128,128,0.06));border:1px solid var(--divider-color);color:var(--primary-text-color);text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:2px;transition:border-color 0.15s,transform 0.1s; }
     .fb-btn:hover { border-color:color-mix(in srgb,var(--primary-color) 30%,var(--divider-color));transform:translateY(-1px); }
@@ -1516,6 +1547,20 @@ class InventarPanel extends LitElement {
               ${(v.entries||[]).map(e => html`<li><span class="cl-tag cl-${e.type}">${e.type}</span><span>${e.text}</span></li>`)}
             </ul>
           </div>`)}
+
+        <div class="info-sec-title">Roadmap</div>
+        ${ROADMAP.map(item => {
+          const s = ROADMAP_STATUS[item.status] || ROADMAP_STATUS.idea;
+          return html`
+            <div class="road-row">
+              <span class="road-dot ${s.cls}"></span>
+              <div class="road-text">
+                <div class="road-title">${item.title}</div>
+                ${item.desc ? html`<div class="road-desc">${item.desc}</div>` : ""}
+              </div>
+              <span class="road-badge ${s.cls}">${s.label}</span>
+            </div>`;
+        })}
 
         <div class="info-sec-title">Feedback</div>
         <div class="fb-grid">
