@@ -508,6 +508,7 @@ class InventarPanel extends LitElement {
     .content { padding:14px 12px 48px;display:flex;flex-direction:column;gap:10px;max-width:600px;margin:0 auto; }
 
     /* ── Cards ── */
+    :focus-visible { outline:2px solid var(--primary-color);outline-offset:2px; }
     .ccard { background:var(--card-background-color,var(--ha-card-background));border:1px solid var(--divider-color);border-radius:var(--inv-radius);overflow:hidden; }
     .ccard-header { display:flex;align-items:center;justify-content:space-between;padding:14px 18px;cursor:pointer;user-select:none;-webkit-user-select:none;transition:background 0.12s; }
     .ccard-header:active { background:var(--inv-fill); }

@@ -230,6 +230,14 @@ class InventarMainPanel extends LitElement {
     return "OK";
   }
 
+  // Status als Farbe + Icon + Label (nicht nur Farbe -> barrierefrei)
+  _si(p) {
+    const st = this._st(p);
+    if (st === "Kritisch") return { color: "#e53935", icon: "mdi:alert-circle", label: "Kritisch" };
+    if (st === "Knapp")    return { color: "#fb8c00", icon: "mdi:alert",        label: "Knapp" };
+    return { color: "#43a047", icon: "mdi:check-circle", label: "OK" };
+  }
+
   async _changeBestand(delta) {
     const p = this._detailProdukt;
     if (!p) return;
@@ -681,6 +689,7 @@ class InventarMainPanel extends LitElement {
 
   static styles = css`
     :host { display:block;background:var(--primary-background-color);min-height:100vh;font-family:var(--paper-font-body1_-_font-family,sans-serif);--m3-space:8px;--m3-radius-large:28px;--m3-radius-medium:16px;--m3-radius-small:12px;--inv-fill:color-mix(in srgb,var(--primary-text-color) 6%,transparent);--inv-fill-2:color-mix(in srgb,var(--primary-text-color) 10%,transparent);--inv-active:color-mix(in srgb,var(--primary-text-color) 15%,transparent);--inv-line:var(--divider-color);--inv-surface:var(--card-background-color,var(--ha-card-background)); }
+    :focus-visible { outline:2px solid var(--primary-color);outline-offset:2px; }
     .header { position:sticky;top:0;z-index:20;display:flex;align-items:center;padding:0 16px;height:64px;background:var(--app-header-background-color,var(--primary-background-color));border-bottom:1px solid var(--divider-color);box-shadow:0 1px 8px rgba(0,0,0,0.2); }
     .hamburger { background:none;border:none;cursor:pointer;padding:8px;border-radius:50%;color:var(--primary-text-color);display:flex;align-items:center;flex-shrink:0; }
     .hamburger svg { width:24px;height:24px;fill:currentColor; }
@@ -838,7 +847,7 @@ class InventarMainPanel extends LitElement {
         </div>` : ""}
 
       <div class="header">
-        <button class="hamburger" @click=${this._openSidebar}>
+        <button class="hamburger" aria-label="Menü öffnen" @click=${this._openSidebar}>
           <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
         </button>
         <div class="header-title">${this._settings?.app?.name || "Inventar"}</div>
@@ -858,9 +867,9 @@ class InventarMainPanel extends LitElement {
 
         <div class="search-bar">
           <ha-icon icon="mdi:magnify"></ha-icon>
-          <input type="text" placeholder="Suchen..." .value=${this._query}
+          <input type="text" placeholder="Suchen..." aria-label="Produkte durchsuchen" .value=${this._query}
             @input=${e=>this._setQuery(e.target.value)} />
-          ${this._query ? html`<button class="search-clear" @click=${()=>this._setQuery("")}>
+          ${this._query ? html`<button class="search-clear" aria-label="Suche löschen" @click=${()=>this._setQuery("")}>
             <ha-icon icon="mdi:close" style="width:18px;height:18px;"></ha-icon>
           </button>` : ""}
         </div>
@@ -889,17 +898,22 @@ class InventarMainPanel extends LitElement {
               visible.forEach(p => {
                 const h = p.hersteller || "Ohne Hersteller";
                 if (h !== lastH) { lastH = h; items.push(html`<div class="hersteller-header">${h}</div>`); }
-                const sc = this._sc(p);
+                const si = this._si(p);
+                const pname = p.anzeige_name || p.produktname;
                 items.push(html`
-                  <div class="produkt-card" @click=${()=>this._openDetail(p)}>
+                  <div class="produkt-card" role="button" tabindex="0"
+                    aria-label="${pname} — Status ${si.label}"
+                    @click=${()=>this._openDetail(p)}
+                    @keydown=${(e)=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); this._openDetail(p); } }}>
                     ${p.bild
-                      ? html`<img class="produkt-img" src="${p.bild}" alt="">`
+                      ? html`<img class="produkt-img" src="${p.bild}" alt="${pname}">`
                       : html`<div class="produkt-ph"><ha-icon icon="mdi:package-variant-closed" style="width:24px;height:24px;color:var(--secondary-text-color);"></ha-icon></div>`}
                     <div class="produkt-info">
-                      <div class="produkt-name">${p.anzeige_name||p.produktname}</div>
+                      <div class="produkt-name">${pname}</div>
                       <div class="produkt-sub">${p.artikelnummer?`Art.-Nr. ${p.artikelnummer}`:""}</div>
                     </div>
-                    <div class="status-dot" style="background:${sc};color:${sc};"></div>
+                    <ha-icon class="status-ic" icon="${si.icon}" title="Status: ${si.label}"
+                      style="color:${si.color};width:18px;height:18px;--mdc-icon-size:18px;flex-shrink:0;align-self:center;"></ha-icon>
                     <ha-icon icon="mdi:chevron-right" style="width:20px;height:20px;color:var(--secondary-text-color);flex-shrink:0;align-self:center;"></ha-icon>
                   </div>`);
               });
@@ -920,7 +934,7 @@ class InventarMainPanel extends LitElement {
           @touchmove=${(e)=>this._onScannerTouchMove(e)}>
           <div class="scanner-header">
             <div class="scanner-title">QR-Code scannen</div>
-            <button class="scanner-close" @click=${()=>this._closeScanner()}>
+            <button class="scanner-close" aria-label="Scanner schließen" @click=${()=>this._closeScanner()}>
               <ha-icon icon="mdi:close" style="width:20px;height:20px;--mdc-icon-size:20px;"></ha-icon>
             </button>
           </div>
@@ -957,10 +971,10 @@ class InventarMainPanel extends LitElement {
       ` : ""}
 
       <div class="fab-row">
-        <button class="fab-scan" @click=${()=>this._openScanner()} title="QR scannen">
+        <button class="fab-scan" aria-label="QR-Code scannen" @click=${()=>this._openScanner()} title="QR scannen">
           <ha-icon icon="mdi:qrcode-scan" style="width:22px;height:22px;--mdc-icon-size:22px;"></ha-icon>
         </button>
-        <button class="fab" @click=${()=>this._openNeu()}>
+        <button class="fab" aria-label="Produkt anlegen" @click=${()=>this._openNeu()}>
           <ha-icon icon="mdi:plus" style="width:28px;height:28px;"></ha-icon>
         </button>
       </div>
