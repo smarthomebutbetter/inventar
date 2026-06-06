@@ -306,11 +306,22 @@ class InventarMainPanel extends LitElement {
     this._detailOpen = true;
   }
 
-  _closeDetail() {
+  async _closeDetail() {
+    // Auto-Save: ungespeicherte Bearbeitung beim Schliessen automatisch sichern.
+    // Der Server-Broadcast informiert danach alle anderen Clients.
+    if (this._editMode && this._detailProdukt && this._editChanged()) {
+      const ok = await this._saveEdit();
+      if (!ok) return;   // bei Fehler Popup offen lassen, keine Daten verlieren
+    }
     this._detailOpen = false;
     this._editMode = false;
     this._qrOpen = false;
     setTimeout(() => { this._detailProdukt = null; }, 300);
+  }
+
+  _editChanged() {
+    try { return JSON.stringify(this._editData) !== JSON.stringify(this._detailProdukt); }
+    catch (_) { return true; }
   }
 
   _sc(p) {
@@ -401,6 +412,7 @@ class InventarMainPanel extends LitElement {
 
   async _saveEdit() {
     this._saveLoading = true;
+    let ok = false;
     try {
       const key = this._detailProdukt.key || this._detailProdukt.id;
       await this.hass.callService("inventar", "produkt_aktualisieren", { key, ...this._editData });
@@ -408,17 +420,20 @@ class InventarMainPanel extends LitElement {
       this._alleProdukte = this._alleProdukte.map(i => (i.key || i.id) === key ? { ...this._editData } : i);
       this._applyFilter();
       this._editMode = false;
+      ok = true;
     } catch (e) { console.error("[Inventar] Speichern:", e); }
     this._saveLoading = false;
+    return ok;
   }
 
   _openNeu() { this._neuData = { einheit: "Stück", bestand: 0 }; this._neuError = ""; this._neuOpen = true; }
-  _closeNeu() { this._neuOpen = false; this._neuError = ""; setTimeout(() => { this._neuData = {}; }, 300); }
   _neuField(f, v) { this._neuData = { ...this._neuData, [f]: v }; }
 
-  async _saveNeu() {
-    if (!this._neuData.produktname?.trim()) { this._neuError = "Produktname ist ein Pflichtfeld."; return; }
-    this._neuLoading = true; this._neuError = "";
+  // Verwerfen (Abbrechen-Button) — nichts speichern
+  _discardNeu() { this._neuOpen = false; this._neuError = ""; setTimeout(() => { this._neuData = {}; }, 300); }
+
+  // Legt das Produkt an (ohne zu schliessen). Gibt true bei Erfolg.
+  async _persistNeu() {
     try {
       await this.hass.callService("inventar", "produkt_anlegen", {
         ...this._neuData,
@@ -426,11 +441,29 @@ class InventarMainPanel extends LitElement {
         mindestmenge: parseFloat(this._neuData.mindestmenge) || 0,
         preis:        parseFloat(this._neuData.preis)        || 0,
       });
+      return true;
+    } catch (e) { console.error("[Inventar] Anlegen:", e); this._neuError = "Fehler beim Anlegen."; return false; }
+  }
+
+  // Schliessen mit Auto-Save (X / Swipe / Tap ausserhalb). Bei leerem Formular
+  // wird ohne Speichern verworfen; Erfolg loest den Server-Broadcast aus.
+  async _closeNeu() {
+    if (this._neuData?.produktname?.trim()) {
+      if (this._neuLoading) return;
+      this._neuLoading = true; this._neuError = "";
+      const ok = await this._persistNeu();
+      this._neuLoading = false;
+      if (!ok) return;   // Fehler -> Popup offen lassen
       if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
-      this._closeNeu();
-      this._scheduleReload(1200);
-    } catch (e) { console.error("[Inventar] Anlegen:", e); this._neuError = "Fehler beim Anlegen."; }
-    this._neuLoading = false;
+    }
+    this._neuOpen = false; this._neuError = "";
+    setTimeout(() => { this._neuData = {}; }, 300);
+  }
+
+  // Expliziter "Anlegen"-Button: Pflichtfeld pruefen, dann speichern + schliessen
+  async _saveNeu() {
+    if (!this._neuData.produktname?.trim()) { this._neuError = "Produktname ist ein Pflichtfeld."; return; }
+    await this._closeNeu();
   }
 
   _triggerBildUpload(key, onSuccess) {
@@ -972,7 +1005,7 @@ class InventarMainPanel extends LitElement {
     return html`<div class="sheet modal">
       <div class="handle"></div>
       <div class="sheet-hdr">
-        <button class="icon-btn" @click=${this._closeNeu}>
+        <button class="icon-btn" @click=${()=>this._closeNeu()}>
           <ha-icon icon="mdi:close" style="width:18px;height:18px;--mdc-icon-size:18px;"></ha-icon>
         </button>
       </div>
@@ -1032,7 +1065,7 @@ class InventarMainPanel extends LitElement {
             <ha-icon icon="mdi:check" style="width:20px;height:20px;--mdc-icon-size:20px;"></ha-icon>
             <span class="act-btn-txt">${this._neuLoading?"Anlegen…":"Anlegen"}</span>
           </button>
-          <button class="act-btn sec" @click=${()=>this._closeNeu()}>
+          <button class="act-btn sec" @click=${()=>this._discardNeu()}>
             <ha-icon icon="mdi:close" style="width:20px;height:20px;--mdc-icon-size:20px;"></ha-icon>
             <span class="act-btn-txt">Abbrechen</span>
           </button>
@@ -1057,7 +1090,7 @@ class InventarMainPanel extends LitElement {
           <ha-icon icon="${p.favorit?"mdi:heart":"mdi:heart-outline"}"
             style="width:20px;height:20px;--mdc-icon-size:20px;color:${p.favorit?"#e53935":"var(--secondary-text-color)"};"></ha-icon>
         </button>
-        <button class="icon-btn" @click=${this._closeDetail}>
+        <button class="icon-btn" @click=${()=>this._closeDetail()}>
           <ha-icon icon="mdi:close" style="width:18px;height:18px;--mdc-icon-size:18px;"></ha-icon>
         </button>
       </div>
