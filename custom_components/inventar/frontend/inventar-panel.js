@@ -86,6 +86,27 @@ class InventarMainPanel extends LitElement {
     this._bestandLockTimer      = null;
     this._hassReady             = false;
     this._reloadTimer           = null;
+    this._io                    = null;   // IntersectionObserver fuer Nachladen
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this._io) { this._io.disconnect(); this._io = null; }
+  }
+
+  // Laedt weitere Produkte, sobald der Sentinel am Listenende sichtbar wird —
+  // funktioniert unabhaengig davon, welcher Container scrollt (kein doppeltes Scrollen).
+  _observeSentinel() {
+    const sentinel = this.shadowRoot?.querySelector("#load-more");
+    if (!this._io) {
+      this._io = new IntersectionObserver((entries) => {
+        if (entries.some(e => e.isIntersecting) && this._visibleCount < this._filtered.length) {
+          this._visibleCount = Math.min(this._visibleCount + 30, this._filtered.length);
+        }
+      }, { rootMargin: "400px" });
+    }
+    this._io.disconnect();
+    if (sentinel) this._io.observe(sentinel);
   }
 
   updated(changedProps) {
@@ -104,6 +125,7 @@ class InventarMainPanel extends LitElement {
           this._swipeSetup(s, closeAction);
         }
       });
+      this._observeSentinel();
     });
   }
 
@@ -719,7 +741,9 @@ class InventarMainPanel extends LitElement {
     .status-dot { width:10px;height:10px;border-radius:50%;flex-shrink:0;box-shadow:0 0 8px currentColor;align-self:center; }
     .hersteller-header { font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--secondary-text-color);padding:calc(var(--m3-space)*2) 4px calc(var(--m3-space)*0.75); }
     .empty { text-align:center;padding:60px 24px;color:var(--secondary-text-color); }
-    .empty-icon { font-size:52px;margin-bottom:12px; }
+    .empty-icon { --mdc-icon-size:52px;width:52px;height:52px;margin:0 auto 12px;color:var(--secondary-text-color);display:block; }
+    .spin { animation:spin 1s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
     .empty-title { font-size:16px;font-weight:600;color:var(--primary-text-color); }
     .empty-sub { font-size:13px;margin-top:6px; }
     .fab-row { position:fixed;bottom:24px;right:16px;display:flex;flex-direction:column;gap:10px;align-items:center;z-index:30;width:58px; }
@@ -876,21 +900,15 @@ class InventarMainPanel extends LitElement {
         <div class="search-hint">${this._query ? `${this._filtered.length} Treffer` : `${this._filtered.length} Produkte`}</div>
 
         ${this._loading ? html`
-          <div class="empty"><div class="empty-icon">⏳</div><div class="empty-title">Lade…</div></div>
+          <div class="empty"><ha-icon class="empty-icon spin" icon="mdi:loading"></ha-icon><div class="empty-title">Lade…</div></div>
         ` : this._filtered.length === 0 ? html`
           <div class="empty">
-            <div class="empty-icon">📭</div>
+            <ha-icon class="empty-icon" icon="mdi:package-variant-remove"></ha-icon>
             <div class="empty-title">Keine Produkte</div>
             <div class="empty-sub">${this._query ? `Kein Ergebnis für „${this._query}"` : "Noch keine Produkte angelegt"}</div>
           </div>
         ` : html`
-          <div class="produkt-list"
-            @scroll=${(e) => {
-              const el = e.target;
-              if (el.scrollHeight - el.scrollTop - el.clientHeight < 300 && this._visibleCount < this._filtered.length)
-                this._visibleCount = Math.min(this._visibleCount + 30, this._filtered.length);
-            }}
-            style="max-height:calc(100vh - 220px);overflow-y:auto;padding-bottom:100px;">
+          <div class="produkt-list" style="padding-bottom:8px;">
             ${(() => {
               const visible = this._filtered.slice(0, this._visibleCount);
               let lastH = null;
@@ -918,8 +936,9 @@ class InventarMainPanel extends LitElement {
                   </div>`);
               });
               if (this._visibleCount < this._filtered.length) {
-                items.push(html`<div style="text-align:center;padding:16px;color:var(--secondary-text-color);font-size:13px;">
-                  ${this._filtered.length - this._visibleCount} weitere — scroll down
+                items.push(html`<div id="load-more" style="text-align:center;padding:16px;color:var(--secondary-text-color);font-size:13px;display:flex;align-items:center;justify-content:center;gap:8px;">
+                  <ha-icon class="spin" icon="mdi:loading" style="--mdc-icon-size:18px;width:18px;height:18px;"></ha-icon>
+                  Lädt weitere… (${this._filtered.length - this._visibleCount})
                 </div>`);
               }
               return items;
