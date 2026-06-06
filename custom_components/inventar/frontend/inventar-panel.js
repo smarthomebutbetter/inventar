@@ -680,7 +680,7 @@ class InventarMainPanel extends LitElement {
   }
 
   static styles = css`
-    :host { display:block;background:var(--primary-background-color);min-height:100vh;font-family:var(--paper-font-body1_-_font-family,sans-serif);--m3-space:8px;--m3-radius-large:28px;--m3-radius-medium:16px;--m3-radius-small:12px; }
+    :host { display:block;background:var(--primary-background-color);min-height:100vh;font-family:var(--paper-font-body1_-_font-family,sans-serif);--m3-space:8px;--m3-radius-large:28px;--m3-radius-medium:16px;--m3-radius-small:12px;--inv-fill:color-mix(in srgb,var(--primary-text-color) 6%,transparent);--inv-fill-2:color-mix(in srgb,var(--primary-text-color) 10%,transparent);--inv-active:color-mix(in srgb,var(--primary-text-color) 15%,transparent);--inv-line:var(--divider-color);--inv-surface:var(--card-background-color,var(--ha-card-background)); }
     .header { position:sticky;top:0;z-index:20;display:flex;align-items:center;padding:0 16px;height:64px;background:var(--app-header-background-color,var(--primary-background-color));border-bottom:1px solid var(--divider-color);box-shadow:0 1px 8px rgba(0,0,0,0.2); }
     .hamburger { background:none;border:none;cursor:pointer;padding:8px;border-radius:50%;color:var(--primary-text-color);display:flex;align-items:center;flex-shrink:0; }
     .hamburger svg { width:24px;height:24px;fill:currentColor; }
@@ -702,8 +702,8 @@ class InventarMainPanel extends LitElement {
     .produkt-list { display:flex;flex-direction:column;gap:8px; }
     .produkt-card { display:flex;align-items:center;gap:12px;background:var(--card-background-color,var(--ha-card-background));border:1px solid var(--divider-color);border-radius:20px;padding:12px 14px;cursor:pointer;transition:opacity 0.12s,transform 0.12s; }
     .produkt-card:active { opacity:0.7;transform:scale(0.985); }
-    .produkt-img { width:48px;height:48px;border-radius:12px;object-fit:contain;flex-shrink:0;background:rgba(255,255,255,0.06);padding:4px;box-sizing:border-box; }
-    .produkt-ph { width:48px;height:48px;border-radius:12px;flex-shrink:0;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center; }
+    .produkt-img { width:48px;height:48px;border-radius:12px;object-fit:contain;flex-shrink:0;background:var(--inv-fill);padding:4px;box-sizing:border-box; }
+    .produkt-ph { width:48px;height:48px;border-radius:12px;flex-shrink:0;background:var(--inv-fill);display:flex;align-items:center;justify-content:center; }
     .produkt-info { flex:1;min-width:0; }
     .produkt-name { font-size:15px;font-weight:600;color:var(--primary-text-color);overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
     .produkt-sub { font-size:12px;color:var(--secondary-text-color);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
@@ -714,7 +714,7 @@ class InventarMainPanel extends LitElement {
     .empty-title { font-size:16px;font-weight:600;color:var(--primary-text-color); }
     .empty-sub { font-size:13px;margin-top:6px; }
     .fab-row { position:fixed;bottom:24px;right:16px;display:flex;flex-direction:column;gap:10px;align-items:center;z-index:30;width:58px; }
-    .fab-scan { width:46px;height:46px;border-radius:15px;background:var(--ha-card-background,#1e1e22);border:1.5px solid rgba(255,255,255,0.15);color:var(--primary-text-color);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,0.3);transition:transform 0.12s;padding:0; }
+    .fab-scan { width:46px;height:46px;border-radius:15px;background:var(--inv-surface);border:1.5px solid var(--inv-line);color:var(--primary-text-color);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,0.3);transition:transform 0.12s;padding:0; }
     .fab-scan:active { transform:scale(0.91); }
     .fab { width:58px;height:58px;border-radius:18px;background:var(--primary-color);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(0,0,0,0.35);transition:transform 0.12s; }
     .fab:active { transform:scale(0.91); }
@@ -722,10 +722,10 @@ class InventarMainPanel extends LitElement {
     @keyframes fadeIn { from{opacity:0}to{opacity:1} }
     .sheet { width:100%;max-height:92vh;background:var(--secondary-background-color,var(--primary-background-color));border-radius:var(--m3-radius-large) var(--m3-radius-large) 0 0;overflow-y:auto;padding-bottom:52px;animation:slideUp 0.3s cubic-bezier(0.32,0.72,0,1); }
     @keyframes slideUp { from{transform:translateY(100%)}to{transform:translateY(0)} }
-    .handle { width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,0.2);margin:12px auto 0; }
+    .handle { width:36px;height:4px;border-radius:2px;background:var(--inv-fill-2);margin:12px auto 0; }
     .sheet-hdr { display:flex;justify-content:flex-end;padding:8px 14px 4px; }
     .sheet-body { padding:4px 14px 0; }
-    .icon-btn { width:42px;height:42px;border-radius:50%;border:1px solid rgba(255,255,255,0.15);background:var(--ha-card-background,#2a2a2e);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--primary-text-color);transition:opacity 0.15s,transform 0.1s;padding:0;flex-shrink:0; }
+    .icon-btn { width:42px;height:42px;border-radius:50%;border:1px solid var(--inv-line);background:var(--inv-surface);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--primary-text-color);transition:opacity 0.15s,transform 0.1s;padding:0;flex-shrink:0; }
     .icon-btn:active { opacity:0.7;transform:scale(0.93); }
     .fav-btn { transition:transform 0.15s!important; }
     .fav-btn:active { transform:scale(0.85)!important; }
@@ -736,8 +736,8 @@ class InventarMainPanel extends LitElement {
     .card-psm { padding:14px; }
     .card-pf { padding:16px 18px; }
     .hero-img-wrap { position:relative;margin-bottom:14px;cursor:pointer; }
-    .hero-img { width:110px;height:110px;border-radius:20px;object-fit:contain;background:rgba(255,255,255,0.06);padding:8px;box-sizing:border-box;display:block; }
-    .hero-ph { width:110px;height:110px;border-radius:20px;background:rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:center;margin-bottom:14px;cursor:pointer; }
+    .hero-img { width:110px;height:110px;border-radius:20px;object-fit:contain;background:var(--inv-fill);padding:8px;box-sizing:border-box;display:block; }
+    .hero-ph { width:110px;height:110px;border-radius:20px;background:var(--inv-fill);display:flex;align-items:center;justify-content:center;margin-bottom:14px;cursor:pointer; }
     .hero-overlay { position:absolute;inset:0;border-radius:20px;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.2s; }
     .hero-img-wrap:hover .hero-overlay { opacity:1; }
     .hero-name { font-size:20px;font-weight:700;color:var(--primary-text-color);margin-top:10px;margin-bottom:8px;letter-spacing:-0.3px; }
@@ -745,29 +745,29 @@ class InventarMainPanel extends LitElement {
     .hero-einheit { font-size:20px;font-weight:400;opacity:0.55;margin-left:5px; }
     .hero-badge { display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:999px;font-size:12px;font-weight:600;margin-bottom:16px;margin-top:4px; }
     .badge-dot { width:7px;height:7px;border-radius:50%;display:inline-block; }
-    .open-btn { padding:10px 28px;border-radius:999px;border:none;background:rgba(255,255,255,0.1);color:var(--primary-text-color);font-size:14px;font-weight:500;cursor:pointer; }
-    .open-btn:active { background:rgba(255,255,255,0.18); }
+    .open-btn { padding:10px 28px;border-radius:999px;border:none;background:var(--inv-fill-2);color:var(--primary-text-color);font-size:14px;font-weight:500;cursor:pointer; }
+    .open-btn:active { background:var(--inv-active); }
     .bild-row { display:flex;gap:8px;margin-top:8px;width:100%; }
-    .bild-btn { flex:1;height:42px;border-radius:14px;border:none;background:rgba(255,255,255,0.08);color:var(--primary-text-color);font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px; }
-    .bild-btn:active { background:rgba(255,255,255,0.14); }
+    .bild-btn { flex:1;height:42px;border-radius:14px;border:none;background:var(--inv-fill-2);color:var(--primary-text-color);font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px; }
+    .bild-btn:active { background:var(--inv-active); }
     .bild-btn.del { color:#e57373; }
     .f-lbl { font-size:11px;font-weight:600;letter-spacing:0.6px;color:var(--secondary-text-color);text-transform:uppercase;margin-bottom:4px; }
     .f-lbl.req::after { content:" *";color:#e53935; }
     .f-val { font-size:16px;font-weight:600;color:var(--primary-text-color); }
-    .f-inp { width:100%;background:none;border:none;border-bottom:1.5px solid rgba(255,255,255,0.18);color:var(--primary-text-color);font-size:16px;font-weight:500;font-family:inherit;padding:3px 0 7px;outline:none;box-sizing:border-box;transition:border-color 0.15s; }
+    .f-inp { width:100%;background:none;border:none;border-bottom:1.5px solid var(--inv-line);color:var(--primary-text-color);font-size:16px;font-weight:500;font-family:inherit;padding:3px 0 7px;outline:none;box-sizing:border-box;transition:border-color 0.15s; }
     .f-inp:focus { border-bottom-color:var(--primary-color); }
-    .f-inp::placeholder { color:rgba(255,255,255,0.22);font-weight:400; }
+    .f-inp::placeholder { color:var(--secondary-text-color);opacity:0.6;font-weight:400; }
     .f-wrap { margin-bottom:16px; }
     .f-wrap:last-child { margin-bottom:0; }
-    .f-empty { font-size:14px;color:rgba(255,255,255,0.22);font-style:italic; }
+    .f-empty { font-size:14px;color:var(--secondary-text-color);opacity:0.7;font-style:italic; }
     .btn-main-row { display:flex;gap:10px;margin-bottom:10px; }
     .btn-main { flex:1;height:58px;border-radius:var(--m3-radius-medium);border:1px solid var(--divider-color);background:var(--card-background-color,var(--ha-card-background));color:var(--primary-text-color);font-size:28px;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.12s,transform 0.1s; }
-    .btn-main:active { background:rgba(255,255,255,0.15);transform:scale(0.95); }
+    .btn-main:active { background:var(--inv-active);transform:scale(0.95); }
     .quick-row { display:flex;gap:7px; }
     .quick-btn { flex:1;height:48px;border-radius:var(--m3-radius-small);border:1px solid var(--divider-color);background:var(--card-background-color,var(--ha-card-background));color:var(--primary-text-color);font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.12s,transform 0.1s; }
-    .quick-btn:active { background:rgba(255,255,255,0.15);transform:scale(0.94); }
+    .quick-btn:active { background:var(--inv-active);transform:scale(0.94); }
     .tags-row { display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px; }
-    .tag-chip { padding:5px 13px;border-radius:999px;font-size:12px;background:rgba(255,255,255,0.08);color:var(--secondary-text-color); }
+    .tag-chip { padding:5px 13px;border-radius:999px;font-size:12px;background:var(--inv-fill-2);color:var(--secondary-text-color); }
     .act-row { display:flex;gap:10px; }
     .act-btn { flex:1;display:flex;align-items:center;padding:0 20px;height:52px;border-radius:26px;border:none;cursor:pointer;font-size:15px;font-weight:600;transition:opacity 0.15s,transform 0.1s; }
     .act-btn:active { transform:scale(0.97); }
@@ -776,19 +776,19 @@ class InventarMainPanel extends LitElement {
     .act-btn-txt { flex:1;text-align:center;margin-right:20px; }
     .act-btn.pri { background:var(--primary-color);color:#fff; }
     .act-btn.sec { background:var(--card-background-color,var(--ha-card-background));border:1.5px solid var(--primary-color);color:var(--primary-color); }
-    .act-btn.sec:active { background:rgba(255,255,255,0.14); }
-    .bild-preview { width:100%;height:130px;border-radius:16px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;margin-bottom:8px;overflow:hidden;cursor:pointer;border:2px dashed rgba(255,255,255,0.15);transition:border-color 0.15s; }
+    .act-btn.sec:active { background:var(--inv-active); }
+    .bild-preview { width:100%;height:130px;border-radius:16px;background:var(--inv-fill);display:flex;align-items:center;justify-content:center;margin-bottom:8px;overflow:hidden;cursor:pointer;border:2px dashed var(--inv-line);transition:border-color 0.15s; }
     .bild-preview:hover { border-color:var(--primary-color); }
     .bild-preview img { width:100%;height:100%;object-fit:contain; }
     .bild-ph { display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--secondary-text-color);font-size:13px; }
     .neu-error { background:rgba(229,57,53,0.15);border-radius:12px;padding:12px 16px;margin-bottom:10px;font-size:13px;color:#e57373; }
-    .kat-btn { width:100%;background:none;border:none;border-bottom:1.5px solid rgba(255,255,255,0.15);padding:4px 0 9px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-family:inherit;font-size:16px;font-weight:500; }
+    .kat-btn { width:100%;background:none;border:none;border-bottom:1.5px solid var(--inv-line);padding:4px 0 9px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-family:inherit;font-size:16px;font-weight:500; }
     .kat-btn:focus { border-bottom-color:var(--primary-color);outline:none; }
-    .picker-sheet { width:100%;background:var(--secondary-background-color,#141416);border-radius:28px 28px 0 0;max-height:70vh;overflow-y:auto;animation:slideUp 0.25s cubic-bezier(0.32,0.72,0,1);padding-bottom:32px; }
-    .picker-hdr { display:flex;align-items:center;justify-content:space-between;padding:16px 18px 8px;border-bottom:1px solid rgba(255,255,255,0.07); }
+    .picker-sheet { width:100%;background:var(--secondary-background-color,var(--card-background-color));border-radius:28px 28px 0 0;max-height:70vh;overflow-y:auto;animation:slideUp 0.25s cubic-bezier(0.32,0.72,0,1);padding-bottom:32px; }
+    .picker-hdr { display:flex;align-items:center;justify-content:space-between;padding:16px 18px 8px;border-bottom:1px solid var(--inv-line); }
     .picker-ttl { font-size:16px;font-weight:700;color:var(--primary-text-color); }
-    .picker-opt { display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border:none;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;font-size:15px;color:var(--primary-text-color);background:none;width:100%;font-family:inherit;text-align:left;transition:background 0.1s; }
-    .picker-opt:active { background:rgba(255,255,255,0.06); }
+    .picker-opt { display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border:none;border-bottom:1px solid var(--inv-line);cursor:pointer;font-size:15px;color:var(--primary-text-color);background:none;width:100%;font-family:inherit;text-align:left;transition:background 0.1s; }
+    .picker-opt:active { background:var(--inv-fill); }
     .picker-opt.sel { color:var(--primary-color);font-weight:600; }
     /* QR */
     .qr-hdr { display:flex;align-items:center;gap:12px;padding:16px 16px 0;flex-wrap:wrap; }
@@ -796,11 +796,11 @@ class InventarMainPanel extends LitElement {
     .qr-sub { font-size:13px;color:var(--secondary-text-color);margin-top:2px; }
     .qr-body { display:flex;flex-direction:column;align-items:center;padding:22px 16px 0; }
     .qr-img { width:240px;height:240px;border-radius:18px;background:#fff;padding:10px;box-sizing:border-box;image-rendering:pixelated; }
-    .qr-link { display:flex;align-items:center;gap:10px;margin-top:16px;width:100%;background:rgba(255,255,255,0.07);border-radius:16px;padding:13px 16px;box-sizing:border-box; }
+    .qr-link { display:flex;align-items:center;gap:10px;margin-top:16px;width:100%;background:var(--inv-fill);border-radius:16px;padding:13px 16px;box-sizing:border-box; }
     .qr-link-txt { flex:1;font-size:12px;color:var(--secondary-text-color);overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
     .qr-copy { flex-shrink:0;background:none;border:none;cursor:pointer;display:flex;padding:4px;color:var(--primary-color); }
     .qr-done { color:#43a047!important; }
-    .qr-design-badge { margin-left:auto;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,0.08);font-size:11px;font-weight:600;color:var(--secondary-text-color);white-space:nowrap; }
+    .qr-design-badge { margin-left:auto;padding:4px 10px;border-radius:999px;background:var(--inv-fill-2);font-size:11px;font-weight:600;color:var(--secondary-text-color);white-space:nowrap; }
     /* Scanner */
     .scanner-backdrop { position:fixed;inset:0;background:#000;z-index:100;display:flex;flex-direction:column;animation:fadeIn 0.2s ease; }
     .scanner-header { display:flex;align-items:center;justify-content:space-between;padding:16px;background:rgba(0,0,0,0.7);position:absolute;top:0;left:0;right:0;z-index:10; }
@@ -1010,7 +1010,7 @@ class InventarMainPanel extends LitElement {
         <div class="card card-p">
           <div style="font-size:20px;font-weight:700;color:var(--primary-text-color);margin-bottom:4px;">Produkt anlegen</div>
           <div style="font-size:13px;color:var(--secondary-text-color);">* = Pflichtfeld</div>
-          ${d.produktname ? html`<div style="margin-top:10px;padding:8px 12px;background:rgba(255,255,255,0.05);border-radius:10px;border:1px solid rgba(255,255,255,0.1);">
+          ${d.produktname ? html`<div style="margin-top:10px;padding:8px 12px;background:var(--inv-fill);border-radius:10px;border:1px solid var(--inv-line);">
             <span style="font-size:11px;font-weight:600;letter-spacing:0.6px;color:var(--secondary-text-color);text-transform:uppercase;">Key (auto)</span><br>
             <span style="font-size:14px;font-family:monospace;color:var(--primary-color);">${this._generateKey(d.produktname)}</span>
           </div>` : ""}
@@ -1047,7 +1047,7 @@ class InventarMainPanel extends LitElement {
           <div class="f-wrap">
             <div class="f-lbl">Kategorie</div>
             <button class="kat-btn" @click=${()=>{this._kategoriePickerTarget="neu";this._kategoriePickerOpen=true;}}>
-              <span style="color:${d.kategorie?"var(--primary-text-color)":"rgba(255,255,255,0.25)"}">${d.kategorie||"— Keine Kategorie —"}</span>
+              <span style="color:${d.kategorie?"var(--primary-text-color)":"var(--secondary-text-color)"}">${d.kategorie||"— Keine Kategorie —"}</span>
               <ha-icon icon="mdi:chevron-right" style="width:18px;height:18px;color:var(--secondary-text-color);"></ha-icon>
             </button>
           </div>
@@ -1159,7 +1159,7 @@ class InventarMainPanel extends LitElement {
           <div class="f-wrap">
             <div class="f-lbl">Kategorie</div>
             <button class="kat-btn" @click=${()=>{this._kategoriePickerTarget="edit";this._kategoriePickerOpen=true;}}>
-              <span style="color:${ed.kategorie?"var(--primary-text-color)":"rgba(255,255,255,0.25)"}">${ed.kategorie||"— Keine Kategorie —"}</span>
+              <span style="color:${ed.kategorie?"var(--primary-text-color)":"var(--secondary-text-color)"}">${ed.kategorie||"— Keine Kategorie —"}</span>
               <ha-icon icon="mdi:chevron-right" style="width:18px;height:18px;color:var(--secondary-text-color);"></ha-icon>
             </button>
           </div>

@@ -481,7 +481,7 @@ class InventarPanel extends LitElement {
 
   // ── Styles ───────────────────────────────────────────────
   static styles = css`
-    :host { display:block;background:var(--primary-background-color);min-height:100vh;font-family:var(--paper-font-body1_-_font-family,sans-serif);--m3-space:8px;--m3-radius-large:28px;--m3-radius-medium:16px;--m3-radius-small:12px;--inv-radius:20px;--inv-radius-sm:12px; }
+    :host { display:block;background:var(--primary-background-color);min-height:100vh;font-family:var(--paper-font-body1_-_font-family,sans-serif);--m3-space:8px;--m3-radius-large:28px;--m3-radius-medium:16px;--m3-radius-small:12px;--inv-radius:20px;--inv-radius-sm:12px;--inv-fill:color-mix(in srgb,var(--primary-text-color) 5%,transparent);--inv-active:color-mix(in srgb,var(--primary-text-color) 12%,transparent); }
 
     /* ── Header ── */
     .header { position:sticky;top:0;z-index:20;display:flex;align-items:center;padding:0 16px 0 4px;height:64px;background:var(--app-header-background-color,var(--primary-background-color));border-bottom:1px solid var(--divider-color);box-shadow:0 1px 8px rgba(0,0,0,0.2); }
@@ -510,7 +510,7 @@ class InventarPanel extends LitElement {
     /* ── Cards ── */
     .ccard { background:var(--card-background-color,var(--ha-card-background));border:1px solid var(--divider-color);border-radius:var(--inv-radius);overflow:hidden; }
     .ccard-header { display:flex;align-items:center;justify-content:space-between;padding:14px 18px;cursor:pointer;user-select:none;-webkit-user-select:none;transition:background 0.12s; }
-    .ccard-header:active { background:rgba(255,255,255,0.04); }
+    .ccard-header:active { background:var(--inv-fill); }
     .ccard-header-left { display:flex;align-items:center;gap:10px; }
     .ccard-title { font-size:15px;font-weight:600;color:var(--primary-text-color); }
     .ccard-subtitle { font-size:12px;color:var(--secondary-text-color);margin-top:1px; }
@@ -530,7 +530,7 @@ class InventarPanel extends LitElement {
     .row-label { font-size:14px;font-weight:500;color:var(--primary-text-color); }
     .row-desc  { font-size:12px;color:var(--secondary-text-color);margin-top:2px;line-height:1.35; }
     .row-ctrl  { flex-shrink:0; }
-    .sub-row { display:flex;align-items:center;justify-content:space-between;gap:16px;padding:11px 18px;border-bottom:1px solid var(--divider-color);background:rgba(255,255,255,0.03); }
+    .sub-row { display:flex;align-items:center;justify-content:space-between;gap:16px;padding:11px 18px;border-bottom:1px solid var(--divider-color);background:var(--inv-fill); }
     .sub-row:last-child { border-bottom:none; }
 
     /* ── Inputs ── */
@@ -628,7 +628,7 @@ class InventarPanel extends LitElement {
     .quick-grid { display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px; }
     .quick-card { background:var(--card-background-color,var(--ha-card-background));border:1px solid var(--divider-color);border-radius:14px;padding:14px 12px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:opacity 0.15s,transform 0.1s; }
     .quick-card:active { opacity:0.7;transform:scale(0.97); }
-    .quick-icon { width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+    .quick-icon { width:34px;height:34px;border-radius:10px;background:var(--inv-fill);display:flex;align-items:center;justify-content:center;flex-shrink:0; }
     .quick-label { font-size:13px;font-weight:600;color:var(--primary-text-color); }
     .quick-desc  { font-size:11px;color:var(--secondary-text-color);margin-top:1px; }
 
