@@ -364,6 +364,7 @@ async def ws_qr_regen_all(
 
 @websocket_api.websocket_command({
     vol.Required("type"): "inventar/dev/enable",
+    vol.Optional("enabled", default=True): bool,
 })
 @websocket_api.async_response
 async def ws_dev_enable(
@@ -371,15 +372,16 @@ async def ws_dev_enable(
     connection: websocket_api.ActiveConnection,
     msg: dict,
 ) -> None:
+    enabled = bool(msg.get("enabled", True))
     settings_manager = hass.data[DOMAIN]["settings_manager"]
     current = settings_manager.all
     developer = current.get("developer", {})
-    developer["enabled"] = True
-    developer["show_dev_tools"] = True
+    developer["enabled"] = enabled
+    developer["show_dev_tools"] = enabled
     developer["last_debug_action"] = datetime.now().isoformat(timespec="seconds")
 
     await settings_manager.async_save({"developer": developer})
-    connection.send_result(msg["id"], {"success": True})
+    connection.send_result(msg["id"], {"success": True, "enabled": enabled})
 
 
 @websocket_api.websocket_command({

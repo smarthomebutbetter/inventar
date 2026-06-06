@@ -1,6 +1,7 @@
 import { LitElement, html, css } from "https://unpkg.com/lit@2?module";
 
 const VERSION = "1.0.0";
+const _ts = new URL(import.meta.url).searchParams.get("v") || "";
 
 const CHANGELOG = [
   {
@@ -96,7 +97,7 @@ const TABS = [
   { id: "einrichten", label: "Einrichten", icon: "mdi:wrench-outline"         },
   { id: "funktionen", label: "Funktionen", icon: "mdi:puzzle-outline"         },
   { id: "daten",      label: "Daten",      icon: "mdi:database-outline"       },
-  { id: "system",     label: "System",     icon: "mdi:cog-outline"            },
+  { id: "system",     label: "Info",       icon: "mdi:information-outline"     },
 ];
 
 
@@ -129,6 +130,8 @@ class InventarPanel extends LitElement {
     _qrRegenDone:      { state: true },
     _qrRegenError:     { state: true },
     _devStatus:        { state: true },
+    _changelog:        { state: true },
+    _roadmap:          { state: true },
     _versionTapCount:  { state: true },
     _savePulse:        { state: true },
     _stats:            { state: true },
@@ -164,6 +167,8 @@ class InventarPanel extends LitElement {
     this._qrRegenDone      = false;
     this._qrRegenError     = "";
     this._devStatus        = { show_dev_tools: false, last_qr_regeneration: "", last_debug_action: "" };
+    this._changelog        = CHANGELOG;   // Fallback; wird aus changelog.json ueberschrieben
+    this._roadmap          = ROADMAP;     // Fallback; wird aus roadmap.json ueberschrieben
     this._versionTapCount  = 0;
     this._savePulse        = false;
     this._stats            = { gesamt: 0, kritisch: 0 };
@@ -178,10 +183,42 @@ class InventarPanel extends LitElement {
       this._loadConfig();
       this._loadDevStatus();
       this._loadServerBackups();
+      this._loadInfoData();
     }
     if (changedProps.has("hass") && this.hass) {
       this._syncStats();
     }
+    this._syncBodyScrollLock();
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._setBodyScrollLock(false);
+  }
+
+  // Hintergrund-Scroll sperren, solange ein Modal (Icon-Picker) offen ist
+  _setBodyScrollLock(locked) {
+    try {
+      const ov = locked ? "hidden" : "";
+      document.body.style.overflow = ov;
+      document.documentElement.style.overflow = ov;
+    } catch (_) {}
+  }
+  _syncBodyScrollLock() { this._setBodyScrollLock(!!this._iconPickerOpen); }
+
+  // Changelog/Roadmap aus JSON laden (auto-aktualisierbar ohne Code-Aenderung)
+  async _loadInfoData() {
+    const q = _ts ? `?v=${_ts}` : "";
+    try { const c = await (await fetch(`/api/inventar_panel/changelog.json${q}`)).json(); if (Array.isArray(c) && c.length) this._changelog = c; } catch (_) {}
+    try { const r = await (await fetch(`/api/inventar_panel/roadmap.json${q}`)).json(); if (Array.isArray(r) && r.length) this._roadmap = r; } catch (_) {}
+  }
+
+  // Entwicklereinstellungen an/aus
+  async _toggleDevMode(on) {
+    try {
+      await this.hass.connection.sendMessagePromise({ type: "inventar/dev/enable", enabled: !!on });
+      await this._loadDevStatus();
+    } catch (e) { console.error("[Settings] Dev-Modus:", e); }
   }
 
   _syncStats() {
@@ -623,13 +660,13 @@ class InventarPanel extends LitElement {
     .cl-tag.cl-neu { background:rgba(67,160,71,0.15);color:#43a047; }
     .cl-tag.cl-fix { background:rgba(251,140,0,0.15);color:#fb8c00; }
     .cl-tag.cl-verbessert { background:rgba(var(--rgb-primary-color,99,102,241),0.15);color:var(--primary-color); }
-    .road-row { display:flex;align-items:flex-start;gap:10px;padding:9px 18px;border-bottom:1px solid var(--divider-color); }
+    .road-row { display:flex;align-items:center;gap:12px;padding:10px 18px;border-bottom:1px solid var(--divider-color); }
     .road-row:last-of-type { border-bottom:none; }
-    .road-dot { width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:5px; }
+    .road-dot { width:9px;height:9px;border-radius:50%;flex-shrink:0; }
     .road-text { flex:1;min-width:0; }
     .road-title { font-size:13px;font-weight:600;color:var(--primary-text-color); }
     .road-desc { font-size:12px;color:var(--secondary-text-color);margin-top:1px; }
-    .road-badge { flex-shrink:0;font-size:10px;font-weight:700;text-transform:uppercase;padding:2px 8px;border-radius:999px;margin-top:2px; }
+    .road-badge { flex-shrink:0;font-size:10px;font-weight:700;text-transform:uppercase;padding:2px 8px;border-radius:999px; }
     .road-dot.done { background:#43a047; }
     .road-dot.progress { background:var(--primary-color); }
     .road-dot.planned { background:#fb8c00; }
@@ -641,7 +678,7 @@ class InventarPanel extends LitElement {
     .fb-grid { display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:0 18px; }
     .fb-btn { padding:14px 8px 12px;border-radius:14px;background:var(--secondary-background-color,rgba(128,128,128,0.06));border:1px solid var(--divider-color);color:var(--primary-text-color);text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:2px;transition:border-color 0.15s,transform 0.1s; }
     .fb-btn:hover { border-color:color-mix(in srgb,var(--primary-color) 30%,var(--divider-color));transform:translateY(-1px); }
-    .fb-btn.fb-star { background:color-mix(in srgb,#f9a825 12%,var(--card-background-color,var(--ha-card-background)));border-color:color-mix(in srgb,#f9a825 30%,var(--divider-color)); }
+    /* Feedback-Buttons einheitlich — kein Sonder-Hintergrund fuer den Stern-Button */
     .fb-emoji { font-size:22px;line-height:1;margin-bottom:4px; }
     .fb-label { font-size:12px;font-weight:700;text-align:center; }
     .fb-sub { font-size:10px;color:var(--secondary-text-color);margin-top:2px;text-align:center; }
@@ -1441,106 +1478,19 @@ class InventarPanel extends LitElement {
 
   // ── Tab: System ──────────────────────────────────────────
   _renderSystem() {
-    const devVisible = this._devStatus?.show_dev_tools ?? false;
+    const dev = this._devStatus?.show_dev_tools ?? false;
+    const cl = this._changelog || [];
+    const rm = this._roadmap || [];
 
     return html`
-      ${this._ccard("integration", "Integration", "Neu laden ohne HA-Neustart", true, html`
-        <div class="row">
-          <div class="row-info">
-            <div class="row-label">Integration neu laden</div>
-            <div class="row-desc">Kein HA-Neustart nötig</div>
-          </div>
-          <button class="btn btn-danger btn-sm"
-            ?disabled=${this._restartLoading}
-            @click=${() => this._restart()}>
-            ${this._restartLoading?"…":this._restartDone?"✅ Fertig":"Neu laden"}
-          </button>
-        </div>
-      `)}
-
-      ${devVisible ? this._ccard("devtools", "🛠️ Entwicklerwerkzeuge", "Freigeschaltet", true, html`
-        <div class="row">
-          <div class="row-info">
-            <div class="row-label">Status</div>
-          </div>
-          <div style="font-size:13px;color:#43a047;font-weight:700;">Aktiv</div>
-        </div>
-        <div class="row">
-          <div class="row-info">
-            <div class="row-label">QR-Codes neu generieren</div>
-            <div class="row-desc">QR-Metadaten neu berechnen</div>
-          </div>
-          <button class="btn btn-outline btn-sm"
-            ?disabled=${this._qrRegenLoading}
-            @click=${() => this._regenerateAllQr()}>
-            ${this._qrRegenLoading?"Läuft…":this._qrRegenDone?"✅ Fertig":"Generieren"}
-          </button>
-        </div>
-        <div class="row">
-          <div class="row-info">
-            <div class="row-label">QR-System zurücksetzen</div>
-            <div class="row-desc">⚠️ Labels müssen neu gedruckt werden</div>
-          </div>
-          <button class="btn btn-warn btn-sm"
-            @click=${() => this._set("qr","eingerichtet",false)}>
-            Zurücksetzen
-          </button>
-        </div>
-        ${this._qrRegenError ? html`<div style="padding:0 18px 12px;"><div class="warn-box">${this._qrRegenError}</div></div>` : ""}
-        ${this._devStatus?.last_qr_regeneration ? html`
-          <div class="sub-row">
-            <div class="row-info">
-              <div class="row-label">Letzte QR-Regeneration</div>
-              <div class="row-desc">${this._devStatus.last_qr_regeneration}</div>
-            </div>
-          </div>` : ""}
-
-        <!-- Icons für Alles + Favoriten -->
-        ${["Alles","Favoriten"].map(name => {
-          const kat = this._getKats().find(k => k.name === name);
-          if (!kat) return "";
-          return html`
-            <div class="row">
-              <div class="row-info">
-                <div class="row-label">${name} — Icons</div>
-                <div class="row-desc">Aktiv / Inaktiv</div>
-              </div>
-              <div style="display:flex;gap:8px;">
-                <button class="kat-icon-btn" title="Aktiv"
-                  @click=${() => { this._iconPickerIndex=null; this._iconPickerField="icon:"+name; this._iconPickerOpen=true; }}>
-                  <ha-icon icon="${kat.icon||"m3rf:grid-view"}" style="width:20px;height:20px;color:#fff;"></ha-icon>
-                </button>
-                <button class="kat-icon-btn" title="Inaktiv" style="background:var(--secondary-background-color);border:1px solid var(--divider-color);"
-                  @click=${() => { this._iconPickerIndex=null; this._iconPickerField="icon_inaktiv:"+name; this._iconPickerOpen=true; }}>
-                  <ha-icon icon="${kat.icon_inaktiv||kat.icon||"m3rf:grid-view"}" style="width:20px;height:20px;color:var(--secondary-text-color);"></ha-icon>
-                </button>
-              </div>
-            </div>`;
-        })}
-      `) : html`
-        <div class="info-box">
-          💡 Mehrfach auf die Versionsnummer oben rechts tippen, um Entwicklerwerkzeuge freizuschalten.
-        </div>
-      `}
-
-      ${this._ccard("info", "Info", `v${VERSION}`, false, html`
+      ${this._ccard("info", "Info", `v${VERSION}`, true, html`
         <div class="row">
           <div class="row-label">Version</div>
-          <div class="version-badge" style="color:var(--secondary-text-color);font-size:14px;"
-            @click=${() => this._handleVersionTap()}>v${VERSION}</div>
+          <div style="color:var(--secondary-text-color);font-size:14px;">v${VERSION}</div>
         </div>
-        <div class="row">
-          <div class="row-label">Datenspeicher</div>
-          <div style="color:var(--secondary-text-color);font-size:13px;font-family:monospace;">/config/inventar/</div>
-        </div>
-        ${this._versionTapCount>0 ? html`
-          <div class="row">
-            <div class="row-label">Entwickler-Taps</div>
-            <div style="color:var(--secondary-text-color);font-size:14px;">${this._versionTapCount}/5</div>
-          </div>` : ""}
 
         <div class="info-sec-title">Was ist neu</div>
-        ${CHANGELOG.map((v, i) => html`
+        ${cl.map((v, i) => html`
           <div class="changelog-entry ${i===0?"fresh":""}">
             <div class="cl-head"><span class="cl-ver">v${v.version}</span><span class="cl-date">${v.date}</span></div>
             <ul class="cl-list">
@@ -1549,16 +1499,16 @@ class InventarPanel extends LitElement {
           </div>`)}
 
         <div class="info-sec-title">Roadmap</div>
-        ${ROADMAP.map(item => {
-          const s = ROADMAP_STATUS[item.status] || ROADMAP_STATUS.idea;
+        ${rm.map(item => {
+          const st = ROADMAP_STATUS[item.status] || ROADMAP_STATUS.idea;
           return html`
             <div class="road-row">
-              <span class="road-dot ${s.cls}"></span>
+              <span class="road-dot ${st.cls}"></span>
               <div class="road-text">
                 <div class="road-title">${item.title}</div>
                 ${item.desc ? html`<div class="road-desc">${item.desc}</div>` : ""}
               </div>
-              <span class="road-badge ${s.cls}">${s.label}</span>
+              <span class="road-badge ${st.cls}">${st.label}</span>
             </div>`;
         })}
 
@@ -1570,7 +1520,7 @@ class InventarPanel extends LitElement {
           <a class="fb-btn" href="https://github.com/smarthomebutbetter/inventar/discussions/new?category=ideas" target="_blank" rel="noopener">
             <span class="fb-emoji">💡</span><span class="fb-label">Wunsch</span><span class="fb-sub">Discussions</span>
           </a>
-          <a class="fb-btn fb-star" href="https://github.com/smarthomebutbetter/inventar" target="_blank" rel="noopener">
+          <a class="fb-btn" href="https://github.com/smarthomebutbetter/inventar" target="_blank" rel="noopener">
             <span class="fb-emoji">⭐</span><span class="fb-label">Stern geben</span><span class="fb-sub">GitHub</span>
           </a>
         </div>
@@ -1581,6 +1531,79 @@ class InventarPanel extends LitElement {
           <div class="info-footer-version">Inventar v${VERSION}</div>
         </div>
       `)}
+
+      ${this._ccard("entwickler", "Entwicklereinstellungen", dev ? "Aktiv" : "Aus", false, html`
+        <div class="row">
+          <div class="row-info">
+            <div class="row-label">Entwicklermodus</div>
+            <div class="row-desc">Technische Werkzeuge & Datenspeicher anzeigen</div>
+          </div>
+          <ha-switch ?checked=${dev} @change=${e => this._toggleDevMode(e.target.checked)}></ha-switch>
+        </div>
+      `)}
+
+      ${dev ? html`
+        ${this._ccard("integration", "Integration", "Neu laden ohne HA-Neustart", true, html`
+          <div class="row">
+            <div class="row-info">
+              <div class="row-label">Integration neu laden</div>
+              <div class="row-desc">Kein HA-Neustart nötig</div>
+            </div>
+            <button class="btn btn-danger btn-sm" ?disabled=${this._restartLoading} @click=${() => this._restart()}>
+              ${this._restartLoading?"…":this._restartDone?"✅ Fertig":"Neu laden"}
+            </button>
+          </div>
+        `)}
+
+        ${this._ccard("devtools", "🛠️ Entwicklerwerkzeuge", "Technisch", true, html`
+          <div class="row">
+            <div class="row-info">
+              <div class="row-label">Datenspeicher</div>
+              <div class="row-desc" style="font-family:monospace;">/config/inventar/</div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="row-info">
+              <div class="row-label">QR-Codes neu generieren</div>
+              <div class="row-desc">QR-Metadaten neu berechnen</div>
+            </div>
+            <button class="btn btn-outline btn-sm" ?disabled=${this._qrRegenLoading} @click=${() => this._regenerateAllQr()}>
+              ${this._qrRegenLoading?"Läuft…":this._qrRegenDone?"✅ Fertig":"Generieren"}
+            </button>
+          </div>
+          <div class="row">
+            <div class="row-info">
+              <div class="row-label">QR-System zurücksetzen</div>
+              <div class="row-desc">⚠️ Labels müssen neu gedruckt werden</div>
+            </div>
+            <button class="btn btn-warn btn-sm" @click=${() => this._set("qr","eingerichtet",false)}>Zurücksetzen</button>
+          </div>
+          ${this._qrRegenError ? html`<div style="padding:0 18px 12px;"><div class="warn-box">${this._qrRegenError}</div></div>` : ""}
+          ${this._devStatus?.last_qr_regeneration ? html`
+            <div class="sub-row">
+              <div class="row-info">
+                <div class="row-label">Letzte QR-Regeneration</div>
+                <div class="row-desc">${this._devStatus.last_qr_regeneration}</div>
+              </div>
+            </div>` : ""}
+
+          ${["Alles","Favoriten"].map(name => {
+            const kat = this._getKats().find(k => k.name === name);
+            if (!kat) return "";
+            return html`
+              <div class="row">
+                <div class="row-info">
+                  <div class="row-label">${name} — Icon</div>
+                  <div class="row-desc">Aktives Icon</div>
+                </div>
+                <button class="kat-icon-btn" title="Icon ändern"
+                  @click=${() => { this._iconPickerIndex=null; this._iconPickerField="icon:"+name; this._iconPickerOpen=true; }}>
+                  <ha-icon icon="${kat.icon||"m3rf:grid-view"}" style="width:20px;height:20px;color:#fff;"></ha-icon>
+                </button>
+              </div>`;
+          })}
+        `)}
+      ` : ""}
     `;
   }
 }

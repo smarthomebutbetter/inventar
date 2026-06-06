@@ -1,0 +1,8 @@
+[
+  { "status": "done",     "title": "Verschlüsseltes Backup & Restore", "desc": "AES-256, Export/Import" },
+  { "status": "done",     "title": "Multi-Geräte-Sync in Echtzeit",     "desc": "WebSocket-Broadcasting" },
+  { "status": "progress", "title": "Mehrsprachigkeit aller Panels",     "desc": "DE/EN, weitere folgen" },
+  { "status": "planned",  "title": "CSV-Import / -Export",              "desc": "Massenpflege per Tabelle" },
+  { "status": "planned",  "title": "Etiketten-Druck",                  "desc": "QR-Labels direkt drucken" },
+  { "status": "idea",     "title": "Barcode-Scan (EAN)",               "desc": "Produkte per Barcode finden" }
+]

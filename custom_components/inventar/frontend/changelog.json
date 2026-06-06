@@ -1,0 +1,14 @@
+[
+  {
+    "version": "1.0.0",
+    "date": "April 2026",
+    "entries": [
+      { "type": "neu", "text": "QR-Scanner mit iOS & Android Support" },
+      { "type": "neu", "text": "Auto-Save — keine Save-Taste mehr nötig" },
+      { "type": "neu", "text": "Verschlüsseltes Backup & Restore (AES-256)" },
+      { "type": "neu", "text": "Multi-Geräte-Sync in Echtzeit" },
+      { "type": "neu", "text": "KI-Features mit Claude, OpenAI & Gemini" },
+      { "type": "fix", "text": "iOS WKWebView GPU-Bug beim QR-Scannen behoben" }
+    ]
+  }
+]
