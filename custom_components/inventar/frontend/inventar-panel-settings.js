@@ -595,6 +595,29 @@ class InventarPanel extends LitElement {
     .bk-icon-btn.danger { color:#e53935; }
     .bk-icon-btn.danger:hover { background:rgba(229,57,53,0.12); }
     .bk-icon-btn:disabled { opacity:0.4;cursor:default; }
+    .info-sec-title { font-size:12px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;color:var(--secondary-text-color);margin:16px 18px 8px; }
+    .changelog-entry { margin:0 18px 10px;padding:12px;border-radius:14px;background:var(--secondary-background-color,rgba(128,128,128,0.06));border:1px solid var(--divider-color); }
+    .changelog-entry.fresh { background:color-mix(in srgb,var(--primary-color) 10%,var(--card-background-color,var(--ha-card-background)));border-color:color-mix(in srgb,var(--primary-color) 30%,var(--divider-color)); }
+    .cl-head { display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:6px; }
+    .cl-ver { font-weight:700;font-size:14px;color:var(--primary-color); }
+    .cl-date { font-size:11px;color:var(--secondary-text-color); }
+    .cl-list { list-style:none;padding:0;margin:0; }
+    .cl-list li { font-size:13px;color:var(--secondary-text-color);padding:3px 0;line-height:1.5;display:flex;gap:8px;align-items:flex-start; }
+    .cl-tag { flex-shrink:0;font-size:10px;font-weight:700;text-transform:uppercase;padding:1px 7px;border-radius:6px;margin-top:1px; }
+    .cl-tag.cl-neu { background:rgba(67,160,71,0.15);color:#43a047; }
+    .cl-tag.cl-fix { background:rgba(251,140,0,0.15);color:#fb8c00; }
+    .cl-tag.cl-verbessert { background:rgba(var(--rgb-primary-color,99,102,241),0.15);color:var(--primary-color); }
+    .fb-grid { display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:0 18px; }
+    .fb-btn { padding:14px 8px 12px;border-radius:14px;background:var(--secondary-background-color,rgba(128,128,128,0.06));border:1px solid var(--divider-color);color:var(--primary-text-color);text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:2px;transition:border-color 0.15s,transform 0.1s; }
+    .fb-btn:hover { border-color:color-mix(in srgb,var(--primary-color) 30%,var(--divider-color));transform:translateY(-1px); }
+    .fb-btn.fb-star { background:color-mix(in srgb,#f9a825 12%,var(--card-background-color,var(--ha-card-background)));border-color:color-mix(in srgb,#f9a825 30%,var(--divider-color)); }
+    .fb-emoji { font-size:22px;line-height:1;margin-bottom:4px; }
+    .fb-label { font-size:12px;font-weight:700;text-align:center; }
+    .fb-sub { font-size:10px;color:var(--secondary-text-color);margin-top:2px;text-align:center; }
+    .info-footer { text-align:center;padding:18px 12px 6px;color:var(--secondary-text-color); }
+    .info-footer-line { font-size:13px;margin:3px 0; }
+    .info-footer-line a { color:var(--primary-color);text-decoration:none;font-weight:600; }
+    .info-footer-version { margin-top:8px;font-family:monospace;font-size:11px;opacity:0.6;letter-spacing:0.5px; }
     .success-box{ padding:12px 16px;border-radius:var(--inv-radius-sm);background:rgba(67,160,71,0.08);border:1px solid rgba(67,160,71,0.22);font-size:13px;color:#43a047;line-height:1.5; }
 
     /* ── Icon Picker Overlay ── */
@@ -1473,7 +1496,7 @@ class InventarPanel extends LitElement {
         <div class="row">
           <div class="row-label">Version</div>
           <div class="version-badge" style="color:var(--secondary-text-color);font-size:14px;"
-            @click=${this._handleVersionTap}>v${VERSION}</div>
+            @click=${() => this._handleVersionTap()}>v${VERSION}</div>
         </div>
         <div class="row">
           <div class="row-label">Datenspeicher</div>
@@ -1484,6 +1507,34 @@ class InventarPanel extends LitElement {
             <div class="row-label">Entwickler-Taps</div>
             <div style="color:var(--secondary-text-color);font-size:14px;">${this._versionTapCount}/5</div>
           </div>` : ""}
+
+        <div class="info-sec-title">Was ist neu</div>
+        ${CHANGELOG.map((v, i) => html`
+          <div class="changelog-entry ${i===0?"fresh":""}">
+            <div class="cl-head"><span class="cl-ver">v${v.version}</span><span class="cl-date">${v.date}</span></div>
+            <ul class="cl-list">
+              ${(v.entries||[]).map(e => html`<li><span class="cl-tag cl-${e.type}">${e.type}</span><span>${e.text}</span></li>`)}
+            </ul>
+          </div>`)}
+
+        <div class="info-sec-title">Feedback</div>
+        <div class="fb-grid">
+          <a class="fb-btn" href="https://github.com/smarthomebutbetter/inventar/issues/new" target="_blank" rel="noopener">
+            <span class="fb-emoji">🐛</span><span class="fb-label">Bug melden</span><span class="fb-sub">GitHub Issues</span>
+          </a>
+          <a class="fb-btn" href="https://github.com/smarthomebutbetter/inventar/discussions/new?category=ideas" target="_blank" rel="noopener">
+            <span class="fb-emoji">💡</span><span class="fb-label">Wunsch</span><span class="fb-sub">Discussions</span>
+          </a>
+          <a class="fb-btn fb-star" href="https://github.com/smarthomebutbetter/inventar" target="_blank" rel="noopener">
+            <span class="fb-emoji">⭐</span><span class="fb-label">Stern geben</span><span class="fb-sub">GitHub</span>
+          </a>
+        </div>
+
+        <div class="info-footer">
+          <div class="info-footer-line info-footer-sub">Ein Projekt von
+            <a href="https://github.com/smarthomebutbetter" target="_blank" rel="noopener">smarthomebutbetter</a></div>
+          <div class="info-footer-version">Inventar v${VERSION}</div>
+        </div>
       `)}
     `;
   }
