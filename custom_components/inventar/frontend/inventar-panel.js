@@ -45,6 +45,7 @@ class InventarMainPanel extends LitElement {
     _zoomSupported:         { state: true },
     _zoomValue:             { state: true },
     _settings:              { state: true },
+    _strings:               { state: true },
   };
 
   constructor() {
@@ -89,6 +90,8 @@ class InventarMainPanel extends LitElement {
     this._pinchStartDist        = 0;
     this._pinchStartZoom        = 1;
     this._settings              = {};
+    this._strings               = {};   // aktive Sprache
+    this._enStrings             = {};   // Englisch als Fallback
     this._bestandLocked         = false;
     this._bestandLockTimer      = null;
     this._hassReady             = false;
@@ -137,10 +140,30 @@ class InventarMainPanel extends LitElement {
   }
 
   async _initialLoad() {
-    await Promise.all([this._loadSettings(), this._loadAlleProdukte()]);
+    await Promise.all([this._loadStrings(), this._loadSettings(), this._loadAlleProdukte()]);
     this._loading = false;
     this._subscribeTagEvents();
     this._checkUrlParam();
+  }
+
+  // i18n: Sprachdateien aus dem Static-Path laden (cache-gebustet via _ts).
+  async _loadStrings() {
+    const supported = ["de", "en"];
+    const hl = (this.hass?.language || "de").toLowerCase().split("-")[0];
+    const lang = supported.includes(hl) ? hl : "en";
+    const q = _ts ? `?v=${_ts}` : "";
+    try {
+      this._enStrings = await (await fetch(`/api/inventar_panel/i18n/en.json${q}`)).json() || {};
+    } catch (_) { this._enStrings = {}; }
+    if (lang === "en") { this._strings = this._enStrings; return; }
+    try {
+      this._strings = await (await fetch(`/api/inventar_panel/i18n/${lang}.json${q}`)).json() || {};
+    } catch (_) { this._strings = this._enStrings; }
+  }
+
+  // Übersetzung: aktive Sprache -> Englisch -> Fallback -> Key
+  _t(k, fb) {
+    return this._strings?.[k] ?? this._enStrings?.[k] ?? fb ?? k;
   }
 
   _checkUrlParam() {
@@ -262,9 +285,9 @@ class InventarMainPanel extends LitElement {
   // Status als Farbe + Icon + Label (nicht nur Farbe -> barrierefrei)
   _si(p) {
     const st = this._st(p);
-    if (st === "Kritisch") return { color: "#e53935", icon: "mdi:alert-circle", label: "Kritisch" };
-    if (st === "Knapp")    return { color: "#fb8c00", icon: "mdi:alert",        label: "Knapp" };
-    return { color: "#43a047", icon: "mdi:check-circle", label: "OK" };
+    if (st === "Kritisch") return { color: "#e53935", icon: "mdi:alert-circle", label: this._t("status_critical","Kritisch") };
+    if (st === "Knapp")    return { color: "#fb8c00", icon: "mdi:alert",        label: this._t("status_low","Knapp") };
+    return { color: "#43a047", icon: "mdi:check-circle", label: this._t("status_ok","OK") };
   }
 
   async _changeBestand(delta) {
@@ -502,7 +525,7 @@ class InventarMainPanel extends LitElement {
       this._setupCameraControls();
       this._startScanning(video);
     } catch (e) {
-      this._scannerError = "Kamerazugriff verweigert. Bitte Berechtigung erteilen.";
+      this._scannerError = this._t("scanner_denied", "Kamerazugriff verweigert. Bitte Berechtigung erteilen.");
       console.error("[Inventar] Kamera:", e);
     }
   }
@@ -630,7 +653,7 @@ class InventarMainPanel extends LitElement {
       const fn = window._jsQR || window.jsQR;
       if (typeof fn === "function") { this._startJsQRLoop(video, fn); return; }
     } catch (e) { console.error("[Inventar] jsQR:", e); }
-    this._scannerError = "QR-Scanner konnte nicht geladen werden.";
+    this._scannerError = this._t("scanner_load_failed", "QR-Scanner konnte nicht geladen werden.");
   }
 
   _startJsQRLoop(video, jsQR) {
@@ -879,7 +902,7 @@ class InventarMainPanel extends LitElement {
         </div>` : ""}
 
       <div class="header">
-        <button class="hamburger" aria-label="Menü öffnen" @click=${this._openSidebar}>
+        <button class="hamburger" aria-label="${this._t("a11y_menu","Menü öffnen")}" @click=${this._openSidebar}>
           <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
         </button>
         <div class="header-title">${this._settings?.app?.name || "Inventar"}</div>
@@ -899,21 +922,21 @@ class InventarMainPanel extends LitElement {
 
         <div class="search-bar">
           <ha-icon icon="mdi:magnify"></ha-icon>
-          <input type="text" placeholder="Suchen..." aria-label="Produkte durchsuchen" .value=${this._query}
+          <input type="text" placeholder="${this._t("search_placeholder","Suchen...")}" aria-label="${this._t("a11y_search","Produkte durchsuchen")}" .value=${this._query}
             @input=${e=>this._setQuery(e.target.value)} />
-          ${this._query ? html`<button class="search-clear" aria-label="Suche löschen" @click=${()=>this._setQuery("")}>
+          ${this._query ? html`<button class="search-clear" aria-label="${this._t("a11y_search_clear","Suche löschen")}" @click=${()=>this._setQuery("")}>
             <ha-icon icon="mdi:close" style="width:18px;height:18px;"></ha-icon>
           </button>` : ""}
         </div>
-        <div class="search-hint">${this._query ? `${this._filtered.length} Treffer` : `${this._filtered.length} Produkte`}</div>
+        <div class="search-hint">${this._query ? `${this._filtered.length} ${this._t("hits","Treffer")}` : `${this._filtered.length} ${this._t("products","Produkte")}`}</div>
 
         ${this._loading ? html`
-          <div class="empty"><ha-icon class="empty-icon spin" icon="mdi:loading"></ha-icon><div class="empty-title">Lade…</div></div>
+          <div class="empty"><ha-icon class="empty-icon spin" icon="mdi:loading"></ha-icon><div class="empty-title">${this._t("loading","Lade…")}</div></div>
         ` : this._filtered.length === 0 ? html`
           <div class="empty">
             <ha-icon class="empty-icon" icon="mdi:package-variant-remove"></ha-icon>
-            <div class="empty-title">Keine Produkte</div>
-            <div class="empty-sub">${this._query ? `Kein Ergebnis für „${this._query}"` : "Noch keine Produkte angelegt"}</div>
+            <div class="empty-title">${this._t("empty_title","Keine Produkte")}</div>
+            <div class="empty-sub">${this._query ? `${this._t("empty_search","Kein Ergebnis für")} „${this._query}"` : this._t("empty_none","Noch keine Produkte angelegt")}</div>
           </div>
         ` : html`
           <div class="produkt-list" style="padding-bottom:8px;">
@@ -936,7 +959,7 @@ class InventarMainPanel extends LitElement {
                       : html`<div class="produkt-ph"><ha-icon icon="mdi:package-variant-closed" style="width:24px;height:24px;color:var(--secondary-text-color);"></ha-icon></div>`}
                     <div class="produkt-info">
                       <div class="produkt-name">${pname}</div>
-                      <div class="produkt-sub">${p.artikelnummer?`Art.-Nr. ${p.artikelnummer}`:""}</div>
+                      <div class="produkt-sub">${p.artikelnummer?`${this._t("art_nr","Art.-Nr.")} ${p.artikelnummer}`:""}</div>
                     </div>
                     <ha-icon class="status-ic" icon="${si.icon}" title="Status: ${si.label}"
                       style="color:${si.color};width:18px;height:18px;--mdc-icon-size:18px;flex-shrink:0;align-self:center;"></ha-icon>
@@ -946,7 +969,7 @@ class InventarMainPanel extends LitElement {
               if (this._visibleCount < this._filtered.length) {
                 items.push(html`<div id="load-more" style="text-align:center;padding:16px;color:var(--secondary-text-color);font-size:13px;display:flex;align-items:center;justify-content:center;gap:8px;">
                   <ha-icon class="spin" icon="mdi:loading" style="--mdc-icon-size:18px;width:18px;height:18px;"></ha-icon>
-                  Lädt weitere… (${this._filtered.length - this._visibleCount})
+                  ${this._t("loading_more","Lädt weitere…")} (${this._filtered.length - this._visibleCount})
                 </div>`);
               }
               return items;
@@ -960,14 +983,14 @@ class InventarMainPanel extends LitElement {
           @touchstart=${(e)=>this._onScannerTouchStart(e)}
           @touchmove=${(e)=>this._onScannerTouchMove(e)}>
           <div class="scanner-header">
-            <div class="scanner-title">QR-Code scannen</div>
-            <button class="scanner-close" aria-label="Scanner schließen" @click=${()=>this._closeScanner()}>
+            <div class="scanner-title">${this._t("scanner_title","QR-Code scannen")}</div>
+            <button class="scanner-close" aria-label="${this._t("a11y_scanner_close","Scanner schließen")}" @click=${()=>this._closeScanner()}>
               <ha-icon icon="mdi:close" style="width:20px;height:20px;--mdc-icon-size:20px;"></ha-icon>
             </button>
           </div>
           <div class="scanner-loading" id="scanner-loading">
             <ha-icon icon="mdi:camera" style="width:48px;height:48px;color:rgba(255,255,255,0.4);--mdc-icon-size:48px;"></ha-icon>
-            <span class="scanner-loading-text">Kamera startet…</span>
+            <span class="scanner-loading-text">${this._t("scanner_starting","Kamera startet…")}</span>
           </div>
           <video id="scanner-video" class="scanner-video" playsinline muted autoplay
             @canplay=${() => { const l = this.shadowRoot?.querySelector("#scanner-loading"); if(l) l.style.display="none"; }}>
@@ -993,15 +1016,15 @@ class InventarMainPanel extends LitElement {
 
           ${this._scannerError
             ? html`<div class="scanner-error">${this._scannerError}</div>`
-            : html`<div class="scanner-hint">QR-Code in den Rahmen halten</div>`}
+            : html`<div class="scanner-hint">${this._t("scanner_hint","QR-Code in den Rahmen halten")}</div>`}
         </div>
       ` : ""}
 
       <div class="fab-row">
-        <button class="fab-scan" aria-label="QR-Code scannen" @click=${()=>this._openScanner()} title="QR scannen">
+        <button class="fab-scan" aria-label="${this._t("a11y_scan","QR-Code scannen")}" @click=${()=>this._openScanner()} title="${this._t("a11y_scan","QR-Code scannen")}">
           <ha-icon icon="mdi:qrcode-scan" style="width:22px;height:22px;--mdc-icon-size:22px;"></ha-icon>
         </button>
-        <button class="fab" aria-label="Produkt anlegen" @click=${()=>this._openNeu()}>
+        <button class="fab" aria-label="${this._t("a11y_add","Produkt anlegen")}" @click=${()=>this._openNeu()}>
           <ha-icon icon="mdi:plus" style="width:28px;height:28px;"></ha-icon>
         </button>
       </div>
